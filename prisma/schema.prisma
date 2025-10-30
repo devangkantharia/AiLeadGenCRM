@@ -1,0 +1,111 @@
+// Location: /prisma/schema.prisma
+// This is our database schema.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL") // Comes from .env.local
+  relationMode = "prisma"
+}
+
+// Model for our app users, synced from Clerk
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  photo     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  companies Company[] @relation("CompanyOwner")
+  contacts  Person[]  @relation("ContactOwner")
+  deals     Deal[]    @relation("DealOwner")
+  events    Event[]   @relation("EventOwner")
+}
+
+// Model for Companies (Leads/Prospects)
+model Company {
+  id        String  @id @default(cuid())
+  name      String
+  industry  String?
+  size      String? // e.g., "1-10", "11-50"
+  geography String? // e.g., "London, UK"
+  status    String  @default("Lead") // "Lead", "Prospect", "Customer"
+
+  // Relations
+  owner     User     @relation("CompanyOwner", fields: [ownerId], references: [id])
+  ownerId   String
+  people    Person[] // Contacts at this company
+  deals     Deal[]   // Deals with this company
+  events    Event[]  // History for this company
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model for People (Contacts)
+model Person {
+  id        String  @id @default(cuid())
+  firstName String
+  lastName  String?
+  email     String?
+  phone     String?
+  title     String? // e.g., "CEO", "Head of Sales"
+
+  // Relations
+  owner     User     @relation("ContactOwner", fields: [ownerId], references: [id])
+  ownerId   String
+  company   Company  @relation(fields: [companyId], references: [id])
+  companyId String
+  deals     Deal[]   // Deals this person is associated with
+  events    Event[]  // History for this person
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model for Deals (Opportunities)
+model Deal {
+  id     String @id @default(cuid())
+  name   String // e.g., "Q4 SaaS Contract"
+  value  Float // e.g., 50000
+  stage  String @default("Discovery") // "Discovery", "Proposal", "Negotiation", "Closed-Won", "Closed-Lost"
+  closesAt DateTime // Expected close date
+
+  // Relations
+  owner     User     @relation("DealOwner", fields: [ownerId], references: [id])
+  ownerId   String
+  company   Company  @relation(fields: [companyId], references: [id])
+  companyId String
+  contacts  Person[] // Key contacts for this deal
+  events    Event[]  // History for this deal
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model for Events (Activities, Notes, etc.)
+model Event {
+  id        String @id @default(cuid())
+  type      String // "Note", "Email", "Call", "Meeting", "Task"
+  content   String // The body of the note, email, etc.
+  date      DateTime // When the event happened or is scheduled for
+  isTask    Boolean  @default(false)
+  isDone    Boolean  @default(false)
+
+  // Relations
+  owner     User     @relation("EventOwner", fields: [ownerId], references: [id])
+  ownerId   String
+  company   Company? @relation(fields: [companyId], references: [id])
+  companyId String?
+  person    Person?  @relation(fields: [personId], references: [id])
+  personId  String?
+  deal      Deal?    @relation(fields: [dealId], references: [id])
+  dealId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
