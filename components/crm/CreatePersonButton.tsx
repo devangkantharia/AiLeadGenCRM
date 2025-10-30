@@ -1,6 +1,4 @@
 // Location: /components/crm/CreatePersonButton.tsx
-// --- NEW FILE ---
-
 "use client";
 
 import React, { useState } from "react";
@@ -22,21 +20,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function CreatePersonButton() {
+// --- UPDATED PROPS ---
+export function CreatePersonButton({ companyId }: { companyId?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // 1. Fetch companies to populate the dropdown
   const { data: companies, isLoading: isLoadingCompanies } = useQuery({
     queryKey: ["companies"],
     queryFn: () => getCompanies(),
+    // Only fetch companies if no specific companyId is provided
+    enabled: !companyId,
   });
 
-  // 2. Create a mutation for creating the person
   const { mutate, isPending } = useMutation({
     mutationFn: createPerson,
     onSuccess: () => {
+      // Invalidate both people and the specific company details
       queryClient.invalidateQueries({ queryKey: ["people"] });
+      queryClient.invalidateQueries({ queryKey: ["company", companyId] });
       setIsOpen(false);
       form.reset();
     },
@@ -45,7 +46,6 @@ export function CreatePersonButton() {
     },
   });
 
-  // 3. Setup the form
   const form = useForm({
     defaultValues: {
       firstName: "",
@@ -53,7 +53,8 @@ export function CreatePersonButton() {
       email: "",
       phone: "",
       title: "",
-      companyId: "",
+      // --- UPDATE: Use the prop for the default value ---
+      companyId: companyId || "",
     },
     onSubmit: async ({ value }) => {
       mutate(value);
@@ -79,6 +80,7 @@ export function CreatePersonButton() {
           }}
           className="space-y-4"
         >
+          {/* Form fields (firstName, lastName, email, phone, title) are unchanged... */}
           {/* First Name */}
           <form.Field
             name="firstName"
@@ -178,43 +180,45 @@ export function CreatePersonButton() {
             )}
           />
 
-          {/* Company Select */}
-          <form.Field
-            name="companyId"
-            validators={{ onChange: personFormSchema.shape.companyId }}
-            children={(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Company</Label>
-                <select
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                    field.handleChange(e.target.value)
-                  }
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  disabled={isLoadingCompanies}
-                >
-                  <option value="" disabled>
-                    {isLoadingCompanies
-                      ? "Loading companies..."
-                      : "Select a company"}
-                  </option>
-                  {companies?.map((company: any) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
+          {/* --- UPDATE: Conditionally hide the Company select --- */}
+          {!companyId && (
+            <form.Field
+              name="companyId"
+              validators={{ onChange: personFormSchema.shape.companyId }}
+              children={(field) => (
+                <div className="space-y-2">
+                  <Label htmlFor={field.name}>Company</Label>
+                  <select
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      field.handleChange(e.target.value)
+                    }
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    disabled={isLoadingCompanies}
+                  >
+                    <option value="" disabled>
+                      {isLoadingCompanies
+                        ? "Loading companies..."
+                        : "Select a company"}
                     </option>
-                  ))}
-                </select>
-                {field.state.meta.errors && (
-                  <p className="text-red-500 text-sm">
-                    {field.state.meta.errors.join(", ")}
-                  </p>
-                )}
-              </div>
-            )}
-          />
+                    {companies?.map((company: any) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </select>
+                  {field.state.meta.errors && (
+                    <p className="text-red-500 text-sm">
+                      {field.state.meta.errors.join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
+            />
+          )}
 
           <DialogFooter>
             <DialogClose asChild>

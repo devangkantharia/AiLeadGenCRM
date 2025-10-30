@@ -21,22 +21,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const STAGES = ["Discovery", "Proposal", "Negotiation", "Won", "Lost"] as const;
-// --- FIX 1: Define the union type ---
 type Stage = (typeof STAGES)[number];
 
-export function CreateDealButton() {
+// --- UPDATED PROPS ---
+export function CreateDealButton({ companyId }: { companyId?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: companies, isLoading: isLoadingCompanies } = useQuery({
     queryKey: ["companies"],
     queryFn: () => getCompanies(),
+    // Only fetch if no companyId is provided
+    enabled: !companyId,
   });
 
   const { mutate, isPending } = useMutation({
     mutationFn: createDeal,
     onSuccess: () => {
+      // Invalidate both deals and the specific company details
       queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["company", companyId] });
       setIsOpen(false);
       form.reset();
     },
@@ -48,8 +52,8 @@ export function CreateDealButton() {
   const form = useForm({
     defaultValues: {
       name: "",
-      companyId: "",
-      // --- FIX 2: Cast the default value to the union type ---
+      // --- UPDATE: Use the prop for the default value ---
+      companyId: companyId || "",
       stage: "Discovery" as Stage,
       value: 0,
       closesAt: new Date().toISOString().split("T")[0],
@@ -78,7 +82,7 @@ export function CreateDealButton() {
           }}
           className="space-y-4"
         >
-          {/* Deal Name */}
+          {/* Deal Name (unchanged) */}
           <form.Field
             name="name"
             validators={{ onChange: dealFormSchema.shape.name }}
@@ -102,45 +106,47 @@ export function CreateDealButton() {
             )}
           />
 
-          {/* Company Select */}
-          <form.Field
-            name="companyId"
-            validators={{ onChange: dealFormSchema.shape.companyId }}
-            children={(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Company</Label>
-                <select
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                    field.handleChange(e.target.value)
-                  }
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  disabled={isLoadingCompanies}
-                >
-                  <option value="" disabled>
-                    {isLoadingCompanies
-                      ? "Loading companies..."
-                      : "Select a company"}
-                  </option>
-                  {companies?.map((company: any) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
+          {/* --- UPDATE: Conditionally hide the Company select --- */}
+          {!companyId && (
+            <form.Field
+              name="companyId"
+              validators={{ onChange: dealFormSchema.shape.companyId }}
+              children={(field) => (
+                <div className="space-y-2">
+                  <Label htmlFor={field.name}>Company</Label>
+                  <select
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      field.handleChange(e.target.value)
+                    }
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    disabled={isLoadingCompanies}
+                  >
+                    <option value="" disabled>
+                      {isLoadingCompanies
+                        ? "Loading companies..."
+                        : "Select a company"}
                     </option>
-                  ))}
-                </select>
-                {field.state.meta.errors && (
-                  <p className="text-red-500 text-sm">
-                    {field.state.meta.errors.join(", ")}
-                  </p>
-                )}
-              </div>
-            )}
-          />
+                    {companies?.map((company: any) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </select>
+                  {field.state.meta.errors && (
+                    <p className="text-red-500 text-sm">
+                      {field.state.meta.errors.join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
+            />
+          )}
 
-          {/* Deal Value */}
+          {/* Deal Value (unchanged) */}
           <form.Field
             name="value"
             validators={{ onChange: dealFormSchema.shape.value }}
@@ -166,7 +172,7 @@ export function CreateDealButton() {
             )}
           />
 
-          {/* Stage Select */}
+          {/* Stage Select (unchanged) */}
           <form.Field
             name="stage"
             validators={{ onChange: dealFormSchema.shape.stage }}
@@ -178,11 +184,9 @@ export function CreateDealButton() {
                   name={field.name}
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  // --- FIX 3: Cast the value to the union type ---
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                     field.handleChange(e.target.value as Stage)
                   }
-                  // --- END FIX ---
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   {STAGES.map((stage) => (
@@ -195,7 +199,7 @@ export function CreateDealButton() {
             )}
           />
 
-          {/* Closes At */}
+          {/* Closes At (unchanged) */}
           <form.Field
             name="closesAt"
             validators={{ onChange: dealFormSchema.shape.closesAt }}

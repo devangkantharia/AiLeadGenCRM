@@ -3,8 +3,11 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-// --- ADD personFormSchema ---
-import { companyFormSchema, dealFormSchema, personFormSchema } from "@/lib/schemas";
+import {
+  companyFormSchema,
+  dealFormSchema,
+  personFormSchema,
+} from "@/lib/schemas";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -104,15 +107,12 @@ export async function createDeal(data: z.infer<typeof dealFormSchema>) {
   return newDeal[0];
 }
 
-// --- NEW PERSON ACTIONS ---
-
-// GET All People
+// --- PERSON ACTIONS (no change) ---
 export async function getPeople() {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
 
-  // Join with Company table to get company name
   const { data, error } = await supabaseAdmin
     .from("Person")
     .select(
@@ -131,28 +131,51 @@ export async function getPeople() {
   return data;
 }
 
-// CREATE Person
 export async function createPerson(data: z.infer<typeof personFormSchema>) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-
   const userId = await getUserId(clerkId);
-
   const validatedData = personFormSchema.safeParse(data);
   if (!validatedData.success) {
     throw new Error(`Invalid form data: ${validatedData.error.message}`);
   }
-
   const { data: newPerson, error } = await supabaseAdmin
     .from("Person")
     .insert([{ ...validatedData.data, ownerId: userId }])
     .select();
-
   if (error) {
     console.error("Error creating person:", error);
     throw new Error("Failed to create person");
   }
-
   revalidatePath("/people");
   return newPerson[0];
+}
+
+// --- GET FULL COMPANY DETAILS (This is the function we're calling) ---
+export async function getCompanyDetails(companyId: string) {
+  const { userId: clerkId } = auth();
+  if (!clerkId) throw new Error("User not authenticated");
+
+  // Make sure the user owns this company
+  const userId = await getUserId(clerkId);
+  const { data, error } = await supabaseAdmin
+    .from("Company")
+    .select(
+      `
+      *,
+      Person (*),
+      Deal (*),
+      Event (*)
+    `
+    )
+    .eq("id", companyId)
+    .eq("ownerId", userId)
+    .single(); // We expect only one company
+
+  if (error) {
+    console.error("Error fetching company details:", error);
+    throw new Error("Failed to fetch company details");
+  }
+
+  return data;
 }
