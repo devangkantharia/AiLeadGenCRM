@@ -21,12 +21,19 @@ export const dealFormSchema = z.object({
     "Won",
     "Lost",
   ]),
-  // Pre-process input: it comes as a string, we convert to number
-  // THIS IS THE FIX: Added .optional() and default(0) to handle empty string
   value: z.preprocess(
     (a) => (String(a) === "" ? 0 : parseFloat(String(a))),
     z.number().min(0, { message: "Value must be 0 or more." }).default(0)
   ),
-  // Input comes as "YYYY-MM-DD", which is a valid date string
   closesAt: z.string().date("Must be a valid date."),
+});
+
+// --- ADD THIS NEW SCHEMA ---
+export const personFormSchema = z.object({
+  firstName: z.string().min(2, { message: "First name is required." }),
+  lastName: z.string().optional(),
+  email: z.string().email({ message: "Must be a valid email." }).optional().or(z.literal("")),
+  phone: z.string().optional(),
+  title: z.string().optional(),
+  companyId: z.string().uuid({ message: "Please select a company." }),
 });
