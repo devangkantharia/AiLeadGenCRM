@@ -28,7 +28,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "3.6.0",
-    "exa-js": "1.0.12",
+    "exa-js": "^1.4.10",
     "langfuse": "^3.38.6",
     "next": "14.2.4",
     "openai": "^4.104.0",
