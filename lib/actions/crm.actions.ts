@@ -3,16 +3,19 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+// --- ADD eventFormSchema ---
 import {
   companyFormSchema,
   dealFormSchema,
   personFormSchema,
+  eventFormSchema, // <-- ADDED
 } from "@/lib/schemas";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 // Helper function (no change)
 async function getUserId(clerkId: string) {
+  // ... (code is unchanged)
   const { data, error } = await supabaseAdmin
     .from("User")
     .select("id")
@@ -26,9 +29,8 @@ async function getUserId(clerkId: string) {
 }
 
 // --- COMPANY ACTIONS (no change) ---
-export async function createCompany(
-  data: z.infer<typeof companyFormSchema>
-) {
+export async function createCompany(data: z.infer<typeof companyFormSchema>) {
+  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -49,6 +51,7 @@ export async function createCompany(
 }
 
 export async function getCompanies() {
+  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -66,6 +69,7 @@ export async function getCompanies() {
 
 // --- DEAL ACTIONS (no change) ---
 export async function getDeals() {
+  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -87,6 +91,7 @@ export async function getDeals() {
 }
 
 export async function createDeal(data: z.infer<typeof dealFormSchema>) {
+  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -107,12 +112,49 @@ export async function createDeal(data: z.infer<typeof dealFormSchema>) {
   return newDeal[0];
 }
 
-// --- PERSON ACTIONS (no change) ---
-export async function getPeople() {
+export async function updateDealStage(dealId: string, newStage: string) {
+  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
+  const { data: deal } = await supabaseAdmin
+    .from("Deal")
+    .select("ownerId, companyId")
+    .eq("id", dealId)
+    .single();
+  if (deal?.ownerId !== userId) {
+    throw new Error("Unauthorized");
+  }
+  const { data: updatedDeal, error } = await supabaseAdmin
+    .from("Deal")
+    .update({ stage: newStage, updatedAt: new Date().toISOString() })
+    .eq("id", dealId)
+    .select("id")
+    .single();
+  if (error) {
+    console.error("Error updating deal stage:", error);
+    throw new Error("Failed to update deal");
+  }
+  if (deal.companyId && newStage) {
+    await supabaseAdmin
+      .from("Company")
+      .update({ status: newStage, updatedAt: new Date().toISOString() })
+      .eq("id", deal.companyId)
+      .eq("ownerId", userId);
+  }
+  revalidatePath("/deals");
+  revalidatePath("/dashboard");
+  revalidatePath("/companies");
+  revalidatePath(`/companies/${deal.companyId}`);
+  return updatedDeal;
+}
 
+// --- PERSON ACTIONS (no change) ---
+export async function getPeople() {
+  // ... (code is unchanged)
+  const { userId: clerkId } = auth();
+  if (!clerkId) throw new Error("User not authenticated");
+  const userId = await getUserId(clerkId);
   const { data, error } = await supabaseAdmin
     .from("Person")
     .select(
@@ -123,7 +165,6 @@ export async function getPeople() {
     )
     .eq("ownerId", userId)
     .order("createdAt", { ascending: false });
-
   if (error) {
     console.error("Error fetching people:", error);
     throw new Error("Failed to fetch people");
@@ -132,6 +173,7 @@ export async function getPeople() {
 }
 
 export async function createPerson(data: z.infer<typeof personFormSchema>) {
+  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -151,12 +193,11 @@ export async function createPerson(data: z.infer<typeof personFormSchema>) {
   return newPerson[0];
 }
 
-// --- GET FULL COMPANY DETAILS (This is the function we're calling) ---
+// --- COMPANY DETAILS ACTION (no change) ---
 export async function getCompanyDetails(companyId: string) {
+  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-
-  // Make sure the user owns this company
   const userId = await getUserId(clerkId);
   const { data, error } = await supabaseAdmin
     .from("Company")
@@ -170,62 +211,40 @@ export async function getCompanyDetails(companyId: string) {
     )
     .eq("id", companyId)
     .eq("ownerId", userId)
-    .single(); // We expect only one company
-
+    .single();
   if (error) {
     console.error("Error fetching company details:", error);
     throw new Error("Failed to fetch company details");
   }
-
   return data;
 }
 
-// --- UPDATE DEAL STAGE ---
-export async function updateDealStage(dealId: string, newStage: string) {
+// --- NEW EVENT ACTION ---
+export async function createEvent(data: z.infer<typeof eventFormSchema>) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
 
-  // Ensure the user owns this deal
   const userId = await getUserId(clerkId);
 
-  // --- STEP 1: Fetch the deal and its companyId ---
-  const { data: deal } = await supabaseAdmin
-    .from("Deal")
-    .select("ownerId, companyId") // Get the companyId
-    .eq("id", dealId)
-    .single();
-
-  if (deal?.ownerId !== userId) {
-    throw new Error("Unauthorized");
+  // Validate data
+  const validatedData = eventFormSchema.safeParse(data);
+  if (!validatedData.success) {
+    throw new Error(`Invalid form data: ${validatedData.error.message}`);
   }
 
-  // --- STEP 2: Update the deal's stage (same as before) ---
-  const { data: updatedDeal, error } = await supabaseAdmin
-    .from("Deal")
-    .update({ stage: newStage, updatedAt: new Date().toISOString() })
-    .eq("id", dealId)
-    .select("id") // We only need the ID back
-    .single();
+  // Create the event
+  const { data: newEvent, error } = await supabaseAdmin
+    .from("Event")
+    .insert([{ ...validatedData.data, ownerId: userId }])
+    .select();
 
   if (error) {
-    console.error("Error updating deal stage:", error);
-    throw new Error("Failed to update deal");
+    console.error("Error creating event:", error);
+    throw new Error("Failed to create event");
   }
 
-  // --- STEP 3: (NEW!) Also update the parent company's status ---
-  if (deal.companyId && newStage) {
-    await supabaseAdmin
-      .from("Company")
-      .update({ status: newStage, updatedAt: new Date().toISOString() })
-      .eq("id", deal.companyId)
-      .eq("ownerId", userId); // Final security check
-  }
+  // Revalidate the company page to show the new event
+  revalidatePath(`/companies/${validatedData.data.companyId}`);
 
-  // --- STEP 4: (NEW!) Revalidate all the paths that show this data ---
-  revalidatePath("/deals");
-  revalidatePath("/dashboard");
-  revalidatePath("/companies"); // This revalidates the main company list
-  revalidatePath(`/companies/${deal.companyId}`); // This revalidates the specific company's page
-
-  return updatedDeal;
+  return newEvent[0];
 }

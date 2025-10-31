@@ -28,7 +28,6 @@ export const dealFormSchema = z.object({
   closesAt: z.string().date("Must be a valid date."),
 });
 
-// --- ADD THIS NEW SCHEMA ---
 export const personFormSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required." }),
   lastName: z.string().optional(),
@@ -36,4 +35,20 @@ export const personFormSchema = z.object({
   phone: z.string().optional(),
   title: z.string().optional(),
   companyId: z.string().uuid({ message: "Please select a company." }),
+});
+
+// --- ADD THIS NEW SCHEMA ---
+export const eventFormSchema = z.object({
+  // We'll pass companyId, personId, dealId as hidden inputs
+  companyId: z.string().uuid(),
+  personId: z.string().uuid().optional().nullable(),
+  dealId: z.string().uuid().optional().nullable(),
+
+  type: z.enum(["Note", "Call", "Email", "Task"]),
+  date: z.string().date(), // Will come from a date picker
+  content: z.string().min(2, { message: "Content is required." }),
+
+  // Specific to tasks
+  isTask: z.boolean().default(false),
+  isDone: z.boolean().default(false),
 });

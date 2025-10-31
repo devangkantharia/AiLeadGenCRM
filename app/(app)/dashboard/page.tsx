@@ -1,33 +1,65 @@
 // Location: /app/(app)/dashboard/page.tsx
-// This will be our main dashboard page.
-// It will hold the AI Worker chat interface and the Recharts charts.
+// --- THIS IS A SERVER COMPONENT ---
 
-export default function DashboardPage() {
-    return (
-        <div>
-            <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+import { getDeals } from "@/lib/actions/crm.actions";
+import { DealsByStageChart } from "@/components/crm/DealsByStageChart";
+import { ValueByStageChart } from "@/components/crm/ValueByStageChart";
+import React from "react";
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Column 1: AI Worker */}
-                <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-semibold mb-4">AI Lead-Gen Worker</h2>
-                    <div className="h-96 border rounded-lg p-4">
-                        {/* AI Chat components will go here */}
-                        <p className="text-gray-500">
-                            [AI Chat Interface Placeholder]
-                        </p>
-                    </div>
-                </div>
+const STAGES = ["Discovery", "Proposal", "Negotiation", "Won", "Lost"] as const;
 
-                {/* Column 2: Deal Pipeline */}
-                <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-semibold mb-4">Deal Pipeline</h2>
-                    <div className="h-96 border rounded-lg p-4">
-                        {/* Recharts components will go here */}
-                        <p className="text-gray-500">[Deal Chart Placeholder]</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+export default async function DashboardPage() {
+
+  const allDeals = await getDeals();
+
+  const dealsByStage = STAGES.map((stage) => {
+    const dealsInStage = allDeals?.filter((deal: any) => deal.stage === stage) || [];
+    return {
+      name: stage,
+      count: dealsInStage.length,
+    };
+  }).filter((item) => item.count > 0);
+
+  const valueByStage = STAGES.map((stage) => {
+    const dealsInStage = allDeals?.filter((deal: any) => deal.stage === stage) || [];
+    const totalValue = dealsInStage.reduce(
+      (sum: number, deal: any) => sum + deal.value,
+      0
     );
+    return {
+      name: stage,
+      value: totalValue,
+    };
+  });
+
+  return (
+    <div className="space-y-8">
+      <h1 className="text-3xl font-bold">Dashboard</h1>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-md border">
+          <h2 className="text-xl font-semibold mb-4">Deals by Stage</h2>
+          {(allDeals?.length || 0) > 0 ? (
+            <DealsByStageChart data={dealsByStage} />
+          ) : (
+            <p className="text-gray-500">No deal data to display.</p>
+          )
+          }
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-md border">
+          <h2 className="text-xl font-semibold mb-4">Pipeline Value by Stage</h2>
+          {(allDeals?.length || 0) > 0 ? (
+            <ValueByStageChart data={valueByStage} />
+          ) : (
+            <p className="text-gray-500">No deal data to display.</p>
+          )
+          }
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow-md border">
+        <h2 className="text-xl font-semibold mb-4">AI Lead Generation</h2>
+      </div>
+    </div>
+  );
 }
