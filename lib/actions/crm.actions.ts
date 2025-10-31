@@ -179,3 +179,53 @@ export async function getCompanyDetails(companyId: string) {
 
   return data;
 }
+
+// --- UPDATE DEAL STAGE ---
+export async function updateDealStage(dealId: string, newStage: string) {
+  const { userId: clerkId } = auth();
+  if (!clerkId) throw new Error("User not authenticated");
+
+  // Ensure the user owns this deal
+  const userId = await getUserId(clerkId);
+
+  // --- STEP 1: Fetch the deal and its companyId ---
+  const { data: deal } = await supabaseAdmin
+    .from("Deal")
+    .select("ownerId, companyId") // Get the companyId
+    .eq("id", dealId)
+    .single();
+
+  if (deal?.ownerId !== userId) {
+    throw new Error("Unauthorized");
+  }
+
+  // --- STEP 2: Update the deal's stage (same as before) ---
+  const { data: updatedDeal, error } = await supabaseAdmin
+    .from("Deal")
+    .update({ stage: newStage, updatedAt: new Date().toISOString() })
+    .eq("id", dealId)
+    .select("id") // We only need the ID back
+    .single();
+
+  if (error) {
+    console.error("Error updating deal stage:", error);
+    throw new Error("Failed to update deal");
+  }
+
+  // --- STEP 3: (NEW!) Also update the parent company's status ---
+  if (deal.companyId && newStage) {
+    await supabaseAdmin
+      .from("Company")
+      .update({ status: newStage, updatedAt: new Date().toISOString() })
+      .eq("id", deal.companyId)
+      .eq("ownerId", userId); // Final security check
+  }
+
+  // --- STEP 4: (NEW!) Revalidate all the paths that show this data ---
+  revalidatePath("/deals");
+  revalidatePath("/dashboard");
+  revalidatePath("/companies"); // This revalidates the main company list
+  revalidatePath(`/companies/${deal.companyId}`); // This revalidates the specific company's page
+
+  return updatedDeal;
+}

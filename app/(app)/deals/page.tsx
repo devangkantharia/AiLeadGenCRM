@@ -1,27 +1,27 @@
 // Location: /app/(app)/deals/page.tsx
+// --- COMPLETE REWRITE FOR DRAG-AND-DROP ---
+
 "use client";
 
-import { getDeals } from "@/lib/actions/crm.actions"; // Corrected import
-import { useQuery } from "@tanstack/react-query";
-import { CreateDealButton } from "@/components/crm/CreateDealButton"; // Corrected import
-import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { getDeals, updateDealStage } from "@/lib/actions/crm.actions";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CreateDealButton } from "@/components/crm/CreateDealButton";
+import React, { useState } from "react";
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { DealLane } from "@/components/crm/DealLane";
 
 const STAGES = ["Discovery", "Proposal", "Negotiation", "Won", "Lost"] as const;
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
-
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
+type Stage = (typeof STAGES)[number];
 
 export default function DealsPage() {
+  const queryClient = useQueryClient();
+
   const {
     data: deals,
     isLoading,
@@ -31,64 +31,109 @@ export default function DealsPage() {
     queryFn: () => getDeals(),
   });
 
-  // This type definition is complex, so we'll use 'any' for the 8-hour sprint
-  // This is safe because we trust our 'getDeals' server action
-  const dealsInStage = (stage: string): any[] => {
-    return deals?.filter((deal: any) => deal.stage === stage) || [];
+  // We need to use local state to enable optimistic updates
+  // We'll set this state once the query loads
+  const [localDeals, setLocalDeals] = useState<any[] | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (deals) {
+      setLocalDeals(deals);
+    }
+  }, [deals]);
+
+  // The mutation function to update the deal stage
+  const { mutate: handleUpdateStage } = useMutation({
+    mutationFn: (args: { dealId: string; newStage: Stage }) =>
+      updateDealStage(args.dealId, args.newStage),
+
+    // This is the "optimistic update" magic
+    onMutate: async (optimisticUpdate) => {
+      // 1. Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ["deals"] });
+
+      // 2. Snapshot the previous value
+      const previousDeals = queryClient.getQueryData<any[]>(["deals"]);
+
+      // 3. Optimistically update to the new value
+      queryClient.setQueryData(
+        ["deals"],
+        (old: any[] | undefined = []) =>
+          old.map((d) =>
+            d.id === optimisticUpdate.dealId
+              ? { ...d, stage: optimisticUpdate.newStage }
+              : d
+          )
+      );
+
+      // Return a context object with the snapshotted value
+      return { previousDeals };
+    },
+    // If the mutation fails, roll back
+    onError: (err, newTodo, context) => {
+      queryClient.setQueryData(["deals"], context?.previousDeals);
+    },
+    // Always refetch after error or success
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+    },
+  });
+
+  // This function is called when you drop a card
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    // active = the card you're dragging (our <DealCard>)
+    // over = the column you dropped it on (our <DealLane>)
+
+    if (over && active.id !== over.id) {
+      const activeDeal = active.data.current?.deal;
+      const newStage = over.id as Stage;
+
+      if (activeDeal.stage !== newStage) {
+        console.log(`Moving deal ${activeDeal.id} to ${newStage}`);
+
+        // Call our mutation function
+        handleUpdateStage({ dealId: activeDeal.id, newStage });
+      }
+    }
+  }
+
+  // Use sensors for pointer (mouse) and keyboard
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require mouse to move 8px before drag starts
+      },
+    })
+  );
+
+  // Helper to filter deals for a specific stage from our *local* state
+  const dealsInStage = (stage: Stage): any[] => {
+    return localDeals?.filter((deal: any) => deal.stage === stage) || [];
   };
 
+  // Use the local state for rendering, but the query state for loading/error
+  if (isLoading) return <p>Loading deals...</p>;
+  if (error) return <p className="text-red-500">Error loading deals: {(error as Error).message}</p>;
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Deals Pipeline</h1>
-        <CreateDealButton />
-      </div>
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Deals Pipeline</h1>
+          <CreateDealButton />
+        </div>
 
-      {isLoading && <p>Loading deals...</p>}
-      {error && (
-        <p className="text-red-500">
-          Error loading deals: {(error as Error).message}
-        </p>
-      )}
-
-      {deals && (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {STAGES.map((stage) => (
-            <div
+            <DealLane
               key={stage}
-              className="bg-gray-100 rounded-lg p-3"
-            >
-              <h3 className="font-semibold mb-3 text-center uppercase text-sm text-gray-500 tracking-wider">{stage}</h3>
-              <div className="space-y-3">
-                {dealsInStage(stage).length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">
-                    No deals
-                  </p>
-                )}
-                {dealsInStage(stage).map((deal: any) => (
-                  <div
-                    key={deal.id}
-                    className="bg-white p-4 rounded-lg shadow border"
-                  >
-                    <h4 className="font-semibold text-blue-600 mb-1">
-                      {deal.name}
-                    </h4>
-                    <p className="text-sm text-gray-700 mb-2">
-                      {deal.Company?.name || "No Company"}
-                    </p>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {currencyFormatter.format(deal.value)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Closes: {dateFormatter.format(new Date(deal.closesAt))}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
+              stage={stage}
+              deals={dealsInStage(stage)}
+            />
           ))}
         </div>
-      )}
-    </div>
+      </div>
+    </DndContext>
   );
 }
