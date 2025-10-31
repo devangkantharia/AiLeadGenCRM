@@ -1,9 +1,9 @@
 // Location: /app/(app)/dashboard/page.tsx
-// --- THIS IS A SERVER COMPONENT ---
 
 import { getDeals } from "@/lib/actions/crm.actions";
 import { DealsByStageChart } from "@/components/crm/DealsByStageChart";
 import { ValueByStageChart } from "@/components/crm/ValueByStageChart";
+import { AIAssistant } from "@/components/crm/AIAssistant";
 import React from "react";
 
 const STAGES = ["Discovery", "Proposal", "Negotiation", "Won", "Lost"] as const;
@@ -35,6 +35,11 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold">Dashboard</h1>
+
+      {/* AI Assistant */}
+      <div className="w-full">
+        <AIAssistant />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-md border">
