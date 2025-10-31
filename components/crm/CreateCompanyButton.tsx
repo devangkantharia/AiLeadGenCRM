@@ -3,9 +3,9 @@
 
 import React, { useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { zodValidator } from "@tanstack/zod-form-adapter";
+// --- REMOVED 'zodValidator' ---
 import { companyFormSchema } from "@/lib/schemas";
-import { createCompany } from "@/lib/actions/crm.actions"; // Corrected import
+import { createCompany } from "@/lib/actions/crm.actions";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -47,7 +47,8 @@ export function CreateCompanyButton() {
     onSubmit: async ({ value }) => {
       mutate(value);
     },
-    validatorAdapter: zodValidator,
+    // --- THIS LINE IS REMOVED ---
+    // validatorAdapter: zodValidator,
   });
 
   return (

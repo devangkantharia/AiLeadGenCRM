@@ -7,7 +7,6 @@ import { getCompanyDetails } from "@/lib/actions/crm.actions";
 import { useQuery } from "@tanstack/react-query";
 import { CreateDealButton } from "@/components/crm/CreateDealButton";
 import { CreatePersonButton } from "@/components/crm/CreatePersonButton";
-import { CreateEventForm } from "@/components/crm/CreateEventForm"; // <-- IMPORT
 import { cn } from "@/lib/utils";
 import { ActivityForm } from "@/components/crm/ActivityForm"; // --- ADD THIS IMPORT ---
 

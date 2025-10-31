@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { zodValidator } from "@tanstack/zod-form-adapter";
+// --- REMOVED 'zodValidator' ---
 import { personFormSchema } from "@/lib/schemas";
 import { createPerson, getCompanies } from "@/lib/actions/crm.actions";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// --- UPDATED PROPS ---
 export function CreatePersonButton({ companyId }: { companyId?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -28,14 +27,12 @@ export function CreatePersonButton({ companyId }: { companyId?: string }) {
   const { data: companies, isLoading: isLoadingCompanies } = useQuery({
     queryKey: ["companies"],
     queryFn: () => getCompanies(),
-    // Only fetch companies if no specific companyId is provided
     enabled: !companyId,
   });
 
   const { mutate, isPending } = useMutation({
     mutationFn: createPerson,
     onSuccess: () => {
-      // Invalidate both people and the specific company details
       queryClient.invalidateQueries({ queryKey: ["people"] });
       queryClient.invalidateQueries({ queryKey: ["company", companyId] });
       setIsOpen(false);
@@ -53,13 +50,13 @@ export function CreatePersonButton({ companyId }: { companyId?: string }) {
       email: "",
       phone: "",
       title: "",
-      // --- UPDATE: Use the prop for the default value ---
       companyId: companyId || "",
     },
     onSubmit: async ({ value }) => {
       mutate(value);
     },
-    validatorAdapter: zodValidator,
+    // --- THIS LINE IS REMOVED ---
+    // validatorAdapter: zodValidator,
   });
 
   return (
@@ -80,7 +77,6 @@ export function CreatePersonButton({ companyId }: { companyId?: string }) {
           }}
           className="space-y-4"
         >
-          {/* Form fields (firstName, lastName, email, phone, title) are unchanged... */}
           {/* First Name */}
           <form.Field
             name="firstName"
@@ -180,7 +176,7 @@ export function CreatePersonButton({ companyId }: { companyId?: string }) {
             )}
           />
 
-          {/* --- UPDATE: Conditionally hide the Company select --- */}
+          {/* Company Select */}
           {!companyId && (
             <form.Field
               name="companyId"

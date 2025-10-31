@@ -1,11 +1,9 @@
 // Location: /components/crm/ActivityForm.tsx
-// --- NEW FILE ---
-
 "use client";
 
 import React, { useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { zodValidator } from "@tanstack/zod-form-adapter";
+// --- REMOVED 'zodValidator' ---
 import { eventFormSchema } from "@/lib/schemas";
 import { createEvent } from "@/lib/actions/crm.actions";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-// --- We need a simple Textarea component ---
+// (Textarea component is the same)
 const Textarea = React.forwardRef<
   HTMLTextAreaElement,
   React.TextareaHTMLAttributes<HTMLTextAreaElement>
@@ -31,7 +29,6 @@ const Textarea = React.forwardRef<
   );
 });
 Textarea.displayName = "Textarea";
-// ---
 
 type ActivityType = "Note" | "Call" | "Email" | "Task";
 
@@ -42,7 +39,6 @@ export function ActivityForm({ companyId }: { companyId: string }) {
   const { mutate, isPending } = useMutation({
     mutationFn: createEvent,
     onSuccess: () => {
-      // Invalidate the company details query to refetch events
       queryClient.invalidateQueries({ queryKey: ["company", companyId] });
       form.reset();
     },
@@ -54,10 +50,10 @@ export function ActivityForm({ companyId }: { companyId: string }) {
   const form = useForm({
     defaultValues: {
       companyId: companyId,
-      personId: undefined, // We'll leave these null for now
+      personId: undefined,
       dealId: undefined,
       type: "Note" as ActivityType,
-      date: new Date().toISOString().split("T")[0], // Today
+      date: new Date().toISOString().split("T")[0],
       content: "",
       isTask: false,
       isDone: false,
@@ -65,17 +61,14 @@ export function ActivityForm({ companyId }: { companyId: string }) {
     onSubmit: async ({ value }) => {
       mutate(value);
     },
-    validatorAdapter: zodValidator,
   });
 
-  // Helper to change tab
   const setTab = (tab: ActivityType) => {
     setActiveTab(tab);
     form.setFieldValue("type", tab);
     form.setFieldValue("isTask", tab === "Task");
   };
 
-  // Tab Button styling
   const tabClass = (tab: ActivityType) =>
     cn(
       "px-4 py-2 font-medium rounded-t-md cursor-pointer",
@@ -86,7 +79,7 @@ export function ActivityForm({ companyId }: { companyId: string }) {
 
   return (
     <div className="bg-white p-4 rounded-lg shadow border">
-      {/* --- Tab Headers --- */}
+      {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-4">
         <div className={tabClass("Note")} onClick={() => setTab("Note")}>Note</div>
         <div className={tabClass("Call")} onClick={() => setTab("Call")}>Call</div>
@@ -94,7 +87,7 @@ export function ActivityForm({ companyId }: { companyId: string }) {
         <div className={tabClass("Task")} onClick={() => setTab("Task")}>Task</div>
       </div>
 
-      {/* --- Form --- */}
+      {/* Form */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -106,7 +99,6 @@ export function ActivityForm({ companyId }: { companyId: string }) {
         {/* Content Field */}
         <form.Field
           name="content"
-          validators={{ onChange: eventFormSchema.shape.content }}
           children={(field) => (
             <div className="space-y-2">
               <Label htmlFor={field.name}>
@@ -136,10 +128,9 @@ export function ActivityForm({ companyId }: { companyId: string }) {
           )}
         />
 
-        {/* Date Field (for all types) */}
+        {/* Date Field */}
         <form.Field
           name="date"
-          validators={{ onChange: eventFormSchema.shape.date }}
           children={(field) => (
             <div className="space-y-2">
               <Label htmlFor={field.name}>
@@ -156,8 +147,6 @@ export function ActivityForm({ companyId }: { companyId: string }) {
             </div>
           )}
         />
-
-        {/* Hidden fields - TanStack Form handles them in defaultValues */}
 
         <div className="flex justify-end">
           <Button type="submit" disabled={isPending}>

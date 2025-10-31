@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { zodValidator } from "@tanstack/zod-form-adapter";
+// --- REMOVED 'zodValidator' ---
 import { dealFormSchema } from "@/lib/schemas";
 import { createDeal, getCompanies } from "@/lib/actions/crm.actions";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,7 +23,6 @@ import { Label } from "@/components/ui/label";
 const STAGES = ["Discovery", "Proposal", "Negotiation", "Won", "Lost"] as const;
 type Stage = (typeof STAGES)[number];
 
-// --- UPDATED PROPS ---
 export function CreateDealButton({ companyId }: { companyId?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -31,14 +30,12 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
   const { data: companies, isLoading: isLoadingCompanies } = useQuery({
     queryKey: ["companies"],
     queryFn: () => getCompanies(),
-    // Only fetch if no companyId is provided
     enabled: !companyId,
   });
 
   const { mutate, isPending } = useMutation({
     mutationFn: createDeal,
     onSuccess: () => {
-      // Invalidate both deals and the specific company details
       queryClient.invalidateQueries({ queryKey: ["deals"] });
       queryClient.invalidateQueries({ queryKey: ["company", companyId] });
       setIsOpen(false);
@@ -52,7 +49,6 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
   const form = useForm({
     defaultValues: {
       name: "",
-      // --- UPDATE: Use the prop for the default value ---
       companyId: companyId || "",
       stage: "Discovery" as Stage,
       value: 0,
@@ -61,7 +57,8 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
     onSubmit: async ({ value }) => {
       mutate(value);
     },
-    validatorAdapter: zodValidator,
+    // --- THIS LINE IS REMOVED ---
+    // validatorAdapter: zodValidator,
   });
 
   return (
@@ -82,7 +79,7 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
           }}
           className="space-y-4"
         >
-          {/* Deal Name (unchanged) */}
+          {/* Deal Name */}
           <form.Field
             name="name"
             validators={{ onChange: dealFormSchema.shape.name }}
@@ -106,7 +103,7 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
             )}
           />
 
-          {/* --- UPDATE: Conditionally hide the Company select --- */}
+          {/* Company Select */}
           {!companyId && (
             <form.Field
               name="companyId"
@@ -146,7 +143,7 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
             />
           )}
 
-          {/* Deal Value (unchanged) */}
+          {/* Deal Value */}
           <form.Field
             name="value"
             validators={{ onChange: dealFormSchema.shape.value }}
@@ -172,7 +169,7 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
             )}
           />
 
-          {/* Stage Select (unchanged) */}
+          {/* Stage Select */}
           <form.Field
             name="stage"
             validators={{ onChange: dealFormSchema.shape.stage }}
@@ -199,7 +196,7 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
             )}
           />
 
-          {/* Closes At (unchanged) */}
+          {/* Closes At */}
           <form.Field
             name="closesAt"
             validators={{ onChange: dealFormSchema.shape.closesAt }}
