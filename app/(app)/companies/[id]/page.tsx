@@ -11,6 +11,7 @@ import { CreatePersonButton } from "@/components/crm/CreatePersonButton";
 import { ActivityForm } from "@/components/crm/ActivityForm"; // <-- This was the broken import
 import { cn } from "@/lib/utils";
 import { EditPersonButton } from "@/components/crm/EditPersonButton";
+import { EditDealButton } from "@/components/crm/EditDealButton"; // <-- New import for EditDealButton
 // --- END FIX ---
 
 
@@ -167,7 +168,10 @@ export default function SingleCompanyPage({
             )}
             {typedCompany.Deal?.map((deal: any) => (
               <div key={deal.id} className="bg-white p-4 rounded-lg shadow border">
-                <h3 className="font-semibold text-blue-600">{deal.name}</h3>
+                <div className="flex justify-between items-center mb-1">
+                  <h3 className="font-semibold text-blue-600">{deal.name}</h3>
+                  <EditDealButton deal={deal} />
+                </div>
                 <p className="text-sm font-semibold text-gray-900">{currencyFormatter.format(deal.value)}</p>
                 <p className="text-sm text-gray-600">{deal.stage}</p>
                 <p className="text-xs text-gray-500 mt-1">Closes: {dateFormatter.format(new Date(deal.closesAt))}</p>

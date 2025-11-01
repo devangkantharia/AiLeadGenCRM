@@ -283,3 +283,16 @@ export async function createEvent(data: z.infer<typeof eventFormSchema>) {
 
   return newEvent[0];
 }
+
+export async function updateDeal(dealId: string, values: { name: string; value: number }) {
+  const { data, error } = await supabaseAdmin
+    .from("Deal")
+    .update({ name: values.name, value: values.value })
+    .eq("id", dealId)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  revalidatePath("/deals");
+  revalidatePath(`/companies/${data?.companyId}`);
+  return data;
+}

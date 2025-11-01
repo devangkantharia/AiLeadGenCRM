@@ -58,3 +58,12 @@ export const eventFormSchema = z.object({
   isTask: z.boolean().default(false),
   isDone: z.boolean().default(false),
 });
+
+// --- Schema for the "Edit Deal" form ---
+export const updateDealSchema = z.object({
+  name: z.string().min(2, { message: "Deal name is required." }),
+  value: z.preprocess(
+    (a) => (String(a) === "" ? 0 : parseFloat(String(a))),
+    z.number().min(0, { message: "Value must be 0 or more." })
+  ),
+});

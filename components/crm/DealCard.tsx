@@ -6,6 +6,7 @@ import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { EditDealButton } from "@/components/crm/EditDealButton";
 
 // Re-create our formatters here
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -57,7 +58,10 @@ export function DealCard({
         isOverlay ? "cursor-grabbing" : "cursor-grab"
       )}
     >
-      <h4 className="font-semibold text-blue-600 mb-1">{deal.name}</h4>
+      <h4 className="font-semibold text-blue-600 mb-1 flex items-center justify-between">
+        <span>{deal.name}</span>
+        <EditDealButton deal={deal} />
+      </h4>
       <p className="text-sm text-gray-700 mb-2">
         {deal.Company?.name || "No Company"}
       </p>
