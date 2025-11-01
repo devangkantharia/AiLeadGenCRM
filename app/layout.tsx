@@ -7,6 +7,8 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Providers } from "@/lib/providers"; // Import our new Provider
 
+import { Toaster } from 'sonner';
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -26,6 +28,7 @@ export default function RootLayout({
                 <body className={inter.className}>
                     {/* Wrap the children in our Query Provider */}
                     <Providers>{children}</Providers>
+                    <Toaster />
                 </body>
             </html>
         </ClerkProvider>

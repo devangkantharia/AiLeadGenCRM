@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef } from 'react';
 import MessageContent from '@/components/MessageContent';
 import Citation from '@/components/Citation';
+import { toast } from 'sonner';
 
 interface Message {
   id: string;
@@ -56,6 +57,10 @@ export function AIAssistant() {
 
       const data = await res.json();
       const output = data?.output ?? data?.error ?? "No response";
+
+      if (typeof output === 'string' && output.startsWith('Successfully saved')) {
+        toast.success(output);
+      }
 
       setMessages(prev =>
         prev.map(msg => (msg.id === assistantId ? { ...msg, content: output } : msg))

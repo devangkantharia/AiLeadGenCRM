@@ -1,16 +1,21 @@
 // Location: /app/(app)/dashboard/page.tsx
 
-import { getDeals } from "@/lib/actions/crm.actions";
+import { getCompanies, getDeals } from "@/lib/actions/crm.actions";
 import { DealsByStageChart } from "@/components/crm/DealsByStageChart";
 import { ValueByStageChart } from "@/components/crm/ValueByStageChart";
 import { AIAssistant } from "@/components/crm/AIAssistant";
 import React from "react";
+import Link from "next/link";
 
 const STAGES = ["Discovery", "Proposal", "Negotiation", "Won", "Lost"] as const;
 
 export default async function DashboardPage() {
 
   const allDeals = await getDeals();
+
+  const allCompanies = await getCompanies();
+  const newLeads =
+    allCompanies?.filter((company) => company.status === "Discovery") || [];
 
   const dealsByStage = STAGES.map((stage) => {
     const dealsInStage = allDeals?.filter((deal: any) => deal.stage === stage) || [];
@@ -37,8 +42,29 @@ export default async function DashboardPage() {
       <h1 className="text-3xl font-bold">Dashboard</h1>
 
       {/* AI Assistant */}
-      <div className="w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <AIAssistant />
+
+        <div className="bg-white p-6 rounded-lg shadow-md border">
+          <h2 className="text-xl font-semibold mb-4">AI Lead Generation</h2>
+          {newLeads.length > 0 ? (
+            <ul className="space-y-2">
+              {newLeads.map((lead) => (
+                <li
+                  key={lead.id}
+                  className="flex justify-between items-center p-2 rounded-md hover:bg-gray-50"
+                >
+                  <Link href={`/companies/${lead.id}`} className="font-medium text-blue-600 hover:underline">
+                    {lead.name}
+                  </Link>
+                  <span className="text-sm text-gray-500">{lead.geography}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-500">No new leads generated yet. Use the AI Assistant to find and save leads.</p>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -62,9 +88,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-md border">
-        <h2 className="text-xl font-semibold mb-4">AI Lead Generation</h2>
-      </div>
+
     </div>
   );
 }
