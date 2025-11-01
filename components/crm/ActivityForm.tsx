@@ -1,18 +1,19 @@
 // Location: /components/crm/ActivityForm.tsx
+// --- VALIDATORADAPTER LINE REMOVED ---
+
 "use client";
 
 import React, { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 // --- REMOVED 'zodValidator' ---
 import { eventFormSchema } from "@/lib/schemas";
-import { createEvent } from "@/lib/actions/crm.actions";
+import { createEvent } from "@/lib/actions/crm.actions"; // <-- This import will now work
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-// (Textarea component is the same)
 const Textarea = React.forwardRef<
   HTMLTextAreaElement,
   React.TextareaHTMLAttributes<HTMLTextAreaElement>
@@ -37,7 +38,7 @@ export function ActivityForm({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
 
   const { mutate, isPending } = useMutation({
-    mutationFn: createEvent,
+    mutationFn: createEvent, // <-- This will now resolve
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["company", companyId] });
       form.reset();
@@ -59,8 +60,10 @@ export function ActivityForm({ companyId }: { companyId: string }) {
       isDone: false,
     },
     onSubmit: async ({ value }) => {
-      mutate(value);
+      mutate(value); // <-- This will now work
     },
+    // --- THIS LINE IS REMOVED TO FIX THE CRASH ---
+    // validatorAdapter: zodValidator,
   });
 
   const setTab = (tab: ActivityType) => {
@@ -99,6 +102,7 @@ export function ActivityForm({ companyId }: { companyId: string }) {
         {/* Content Field */}
         <form.Field
           name="content"
+          validators={{ onChange: eventFormSchema.shape.content }}
           children={(field) => (
             <div className="space-y-2">
               <Label htmlFor={field.name}>
@@ -131,6 +135,7 @@ export function ActivityForm({ companyId }: { companyId: string }) {
         {/* Date Field */}
         <form.Field
           name="date"
+          validators={{ onChange: eventFormSchema.shape.date }}
           children={(field) => (
             <div className="space-y-2">
               <Label htmlFor={field.name}>

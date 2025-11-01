@@ -1,4 +1,5 @@
 // Location: /lib/schemas.ts
+// --- THIS IS THE COMPLETE SCHEMA FILE ---
 
 import { z } from "zod";
 
@@ -37,18 +38,23 @@ export const personFormSchema = z.object({
   companyId: z.string().uuid({ message: "Please select a company." }),
 });
 
-// --- ADD THIS NEW SCHEMA ---
+// --- Schema for the "Edit Person" form ---
+export const updatePersonSchema = z.object({
+  firstName: z.string().min(2, { message: "First name is required." }),
+  lastName: z.string().optional(),
+  email: z.string().email({ message: "Must be a valid email." }).optional().or(z.literal("")),
+  phone: z.string().optional(),
+  title: z.string().optional(),
+});
+
+// --- Schema for the "Activity" form ---
 export const eventFormSchema = z.object({
-  // We'll pass companyId, personId, dealId as hidden inputs
   companyId: z.string().uuid(),
   personId: z.string().uuid().optional().nullable(),
   dealId: z.string().uuid().optional().nullable(),
-
   type: z.enum(["Note", "Call", "Email", "Task"]),
-  date: z.string().date(), // Will come from a date picker
+  date: z.string().date("Must be a valid date."),
   content: z.string().min(2, { message: "Content is required." }),
-
-  // Specific to tasks
   isTask: z.boolean().default(false),
   isDone: z.boolean().default(false),
 });

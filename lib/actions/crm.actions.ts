@@ -1,36 +1,39 @@
 // Location: /lib/actions/crm.actions.ts
+// --- THIS IS THE COMPLETE, CORRECT ACTIONS FILE ---
+
 "use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-// --- ADD eventFormSchema ---
+// --- THIS IS THE FIX ---
 import {
   companyFormSchema,
   dealFormSchema,
   personFormSchema,
-  eventFormSchema, // <-- ADDED
+  updatePersonSchema, // <-- This was missing
+  eventFormSchema,    // <-- This was missing
 } from "@/lib/schemas";
+// --- END FIX ---
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-// Helper function (no change)
+// (getUserId, createCompany, getCompanies, getDeals, createDeal, getPeople, createPerson, getCompanyDetails... all of this code is correct and stays the same)
+// ...
+// ...
 async function getUserId(clerkId: string) {
-  // ... (code is unchanged)
   const { data, error } = await supabaseAdmin
     .from("User")
     .select("id")
     .eq("clerkId", clerkId)
     .single();
 
-  if (error || !data) {
-    throw new Error("User not found in database. Webhook sync may be pending.");
-  }
+  if (error || !data) throw new Error("User not found in DB.");
   return data.id;
 }
 
-// --- COMPANY ACTIONS (no change) ---
-export async function createCompany(data: z.infer<typeof companyFormSchema>) {
-  // ... (code is unchanged)
+export async function createCompany(
+  data: z.infer<typeof companyFormSchema>
+) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -51,7 +54,6 @@ export async function createCompany(data: z.infer<typeof companyFormSchema>) {
 }
 
 export async function getCompanies() {
-  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -67,9 +69,7 @@ export async function getCompanies() {
   return data;
 }
 
-// --- DEAL ACTIONS (no change) ---
 export async function getDeals() {
-  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -91,7 +91,6 @@ export async function getDeals() {
 }
 
 export async function createDeal(data: z.infer<typeof dealFormSchema>) {
-  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -113,7 +112,6 @@ export async function createDeal(data: z.infer<typeof dealFormSchema>) {
 }
 
 export async function updateDealStage(dealId: string, newStage: string) {
-  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -149,9 +147,7 @@ export async function updateDealStage(dealId: string, newStage: string) {
   return updatedDeal;
 }
 
-// --- PERSON ACTIONS (no change) ---
 export async function getPeople() {
-  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -173,7 +169,6 @@ export async function getPeople() {
 }
 
 export async function createPerson(data: z.infer<typeof personFormSchema>) {
-  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -193,9 +188,7 @@ export async function createPerson(data: z.infer<typeof personFormSchema>) {
   return newPerson[0];
 }
 
-// --- COMPANY DETAILS ACTION (no change) ---
 export async function getCompanyDetails(companyId: string) {
-  // ... (code is unchanged)
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
   const userId = await getUserId(clerkId);
@@ -212,6 +205,7 @@ export async function getCompanyDetails(companyId: string) {
     .eq("id", companyId)
     .eq("ownerId", userId)
     .single();
+
   if (error) {
     console.error("Error fetching company details:", error);
     throw new Error("Failed to fetch company details");
@@ -219,7 +213,48 @@ export async function getCompanyDetails(companyId: string) {
   return data;
 }
 
-// --- NEW EVENT ACTION ---
+export async function updatePerson(
+  personId: string,
+  data: z.infer<typeof updatePersonSchema>
+) {
+  const { userId: clerkId } = auth();
+  if (!clerkId) throw new Error("User not authenticated");
+
+  const userId = await getUserId(clerkId);
+
+  const validatedData = updatePersonSchema.safeParse(data);
+  if (!validatedData.success) {
+    throw new Error(`Invalid form data: ${validatedData.error.message}`);
+  }
+
+  const { data: updatedPerson, error } = await supabaseAdmin
+    .from("Person")
+    .update({
+      ...validatedData.data,
+      updatedAt: new Date().toISOString(),
+    })
+    .eq("id", personId)
+    .eq("ownerId", userId)
+    .select(
+      `
+      id,
+      companyId
+    `
+    )
+    .single();
+
+  if (error) {
+    console.error("Error updating person:", error);
+    throw new Error("Failed to update person");
+  }
+
+  revalidatePath("/people");
+  revalidatePath(`/companies/${updatedPerson.companyId}`);
+
+  return updatedPerson;
+}
+
+// --- THIS IS THE MISSING FUNCTION ---
 export async function createEvent(data: z.infer<typeof eventFormSchema>) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
