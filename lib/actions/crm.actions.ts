@@ -87,7 +87,13 @@ export async function getDeals() {
     console.error("Error fetching deals:", error);
     throw new Error("Failed to fetch deals");
   }
-  return data;
+
+  // --- FIX: Map the data to lowercase 'company' ---
+  // The component expects `deal.company`, but Supabase returns `deal.Company`.
+  return data.map((deal: any) => ({
+    ...deal,
+    company: deal.Company,
+  }));
 }
 
 export async function createDeal(data: z.infer<typeof dealFormSchema>) {

@@ -55,10 +55,13 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
       closesAt: new Date().toISOString().split("T")[0],
     },
     onSubmit: async ({ value }) => {
-      mutate(value);
+      try {
+        const validated = dealFormSchema.parse(value);
+        mutate(validated);
+      } catch (error) {
+        console.error("Validation error:", error);
+      }
     },
-    // --- THIS LINE IS REMOVED ---
-    // validatorAdapter: zodValidator,
   });
 
   return (
@@ -82,7 +85,6 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
           {/* Deal Name */}
           <form.Field
             name="name"
-            validators={{ onChange: dealFormSchema.shape.name }}
             children={(field) => (
               <div className="space-y-2">
                 <Label htmlFor={field.name}>Deal Name</Label>
@@ -107,7 +109,6 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
           {!companyId && (
             <form.Field
               name="companyId"
-              validators={{ onChange: dealFormSchema.shape.companyId }}
               children={(field) => (
                 <div className="space-y-2">
                   <Label htmlFor={field.name}>Company</Label>
@@ -146,7 +147,6 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
           {/* Deal Value */}
           <form.Field
             name="value"
-            validators={{ onChange: dealFormSchema.shape.value }}
             children={(field) => (
               <div className="space-y-2">
                 <Label htmlFor={field.name}>Value ($)</Label>
@@ -172,7 +172,6 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
           {/* Stage Select */}
           <form.Field
             name="stage"
-            validators={{ onChange: dealFormSchema.shape.stage }}
             children={(field) => (
               <div className="space-y-2">
                 <Label htmlFor={field.name}>Stage</Label>
@@ -199,7 +198,6 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
           {/* Closes At */}
           <form.Field
             name="closesAt"
-            validators={{ onChange: dealFormSchema.shape.closesAt }}
             children={(field) => (
               <div className="space-y-2">
                 <Label htmlFor={field.name}>Estimated Close Date</Label>

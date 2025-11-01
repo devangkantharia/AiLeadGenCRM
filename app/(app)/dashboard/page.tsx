@@ -71,7 +71,7 @@ export default async function DashboardPage() {
         <div className="bg-white p-6 rounded-lg shadow-md border">
           <h2 className="text-xl font-semibold mb-4">Deals by Stage</h2>
           {(allDeals?.length || 0) > 0 ? (
-            <DealsByStageChart data={dealsByStage} />
+            <DealsByStageChart data={dealsByStage} allDeals={allDeals || []} />
           ) : (
             <p className="text-gray-500">No deal data to display.</p>
           )

@@ -53,10 +53,13 @@ export function CreatePersonButton({ companyId }: { companyId?: string }) {
       companyId: companyId || "",
     },
     onSubmit: async ({ value }) => {
-      mutate(value);
+      try {
+        const validated = personFormSchema.parse(value);
+        mutate(validated);
+      } catch (error) {
+        console.error("Validation error:", error);
+      }
     },
-    // --- THIS LINE IS REMOVED ---
-    // validatorAdapter: zodValidator,
   });
 
   return (
@@ -80,7 +83,6 @@ export function CreatePersonButton({ companyId }: { companyId?: string }) {
           {/* First Name */}
           <form.Field
             name="firstName"
-            validators={{ onChange: personFormSchema.shape.firstName }}
             children={(field) => (
               <div className="space-y-2">
                 <Label htmlFor={field.name}>First Name</Label>
@@ -120,7 +122,6 @@ export function CreatePersonButton({ companyId }: { companyId?: string }) {
           {/* Email */}
           <form.Field
             name="email"
-            validators={{ onChange: personFormSchema.shape.email }}
             children={(field) => (
               <div className="space-y-2">
                 <Label htmlFor={field.name}>Email</Label>
@@ -180,7 +181,6 @@ export function CreatePersonButton({ companyId }: { companyId?: string }) {
           {!companyId && (
             <form.Field
               name="companyId"
-              validators={{ onChange: personFormSchema.shape.companyId }}
               children={(field) => (
                 <div className="space-y-2">
                   <Label htmlFor={field.name}>Company</Label>
