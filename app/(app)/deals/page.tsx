@@ -9,12 +9,15 @@ import { CreateDealButton } from "@/components/crm/CreateDealButton";
 import React, { useState } from "react";
 import {
   DndContext,
+  DragOverlay,
   DragEndEvent,
+  DragStartEvent,
   PointerSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import { DealLane } from "@/components/crm/DealLane";
+import { DealCard } from "@/components/crm/DealCard";
 
 const STAGES = ["Discovery", "Proposal", "Negotiation", "Won", "Lost"] as const;
 type Stage = (typeof STAGES)[number];
@@ -34,6 +37,7 @@ export default function DealsPage() {
   // We need to use local state to enable optimistic updates
   // We'll set this state once the query loads
   const [localDeals, setLocalDeals] = useState<any[] | undefined>(undefined);
+  const [activeDeal, setActiveDeal] = useState<any | null>(null);
 
   React.useEffect(() => {
     if (deals) {
@@ -51,18 +55,18 @@ export default function DealsPage() {
       // 1. Cancel any outgoing refetches (so they don't overwrite our optimistic update)
       await queryClient.cancelQueries({ queryKey: ["deals"] });
 
-      // 2. Snapshot the previous value
+      // 2. Optimistically update to the new value
       const previousDeals = queryClient.getQueryData<any[]>(["deals"]);
-
-      // 3. Optimistically update to the new value
       queryClient.setQueryData(
         ["deals"],
         (old: any[] | undefined = []) =>
-          old.map((d) =>
-            d.id === optimisticUpdate.dealId
-              ? { ...d, stage: optimisticUpdate.newStage }
-              : d
-          )
+          old
+            ? old.map((d) =>
+              d.id === optimisticUpdate.dealId
+                ? { ...d, stage: optimisticUpdate.newStage }
+                : d
+            )
+            : []
       );
 
       // Return a context object with the snapshotted value
@@ -78,23 +82,36 @@ export default function DealsPage() {
     },
   });
 
+  // Store the active deal when a drag starts
+  function handleDragStart(event: DragStartEvent) {
+    setActiveDeal(event.active.data.current?.deal ?? null);
+  }
+
   // This function is called when you drop a card
   function handleDragEnd(event: DragEndEvent) {
+    setActiveDeal(null); // Clear active deal
     const { active, over } = event;
 
     // active = the card you're dragging (our <DealCard>)
     // over = the column you dropped it on (our <DealLane>)
 
-    if (over && active.id !== over.id) {
-      const activeDeal = active.data.current?.deal;
-      const newStage = over.id as Stage;
+    if (!over) {
+      return; // Dropped outside of any droppable area
+    }
 
-      if (activeDeal.stage !== newStage) {
-        console.log(`Moving deal ${activeDeal.id} to ${newStage}`);
+    const dealToUpdate = active.data.current?.deal;
+    if (!dealToUpdate) {
+      return;
+    }
 
-        // Call our mutation function
-        handleUpdateStage({ dealId: activeDeal.id, newStage });
-      }
+    // `over.id` can be the lane ID or another card's ID.
+    // `over.data.current?.sortable?.containerId` will reliably give us the lane ID.
+    const newStage = over.data.current?.sortable?.containerId || over.id;
+
+    if (dealToUpdate.stage !== newStage) {
+      console.log(`Moving deal ${dealToUpdate.id} to ${newStage}`);
+      // Call our mutation function
+      handleUpdateStage({ dealId: dealToUpdate.id, newStage: newStage as Stage });
     }
   }
 
@@ -117,7 +134,11 @@ export default function DealsPage() {
   if (error) return <p className="text-red-500">Error loading deals: {(error as Error).message}</p>;
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Deals Pipeline</h1>
@@ -134,6 +155,11 @@ export default function DealsPage() {
           ))}
         </div>
       </div>
+      <DragOverlay>
+        {activeDeal ? (
+          <DealCard deal={activeDeal} isOverlay={true} />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

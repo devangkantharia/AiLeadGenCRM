@@ -20,7 +20,10 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-export function DealCard({ deal }: { deal: any }) {
+export function DealCard({
+  deal,
+  isOverlay = false,
+}: { deal: any; isOverlay?: boolean }) {
   const {
     attributes,
     listeners,
@@ -47,10 +50,11 @@ export function DealCard({ deal }: { deal: any }) {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners} // This attaches the mouse/touch listeners
+      {...(!isOverlay ? listeners : {})} // Don't attach listeners to the overlay
       className={cn(
         "bg-white p-4 rounded-lg shadow border",
-        isDragging ? "opacity-50" : "opacity-100" // Make it see-through while dragging
+        isDragging && !isOverlay ? "opacity-50" : "opacity-100", // Make original see-through
+        isOverlay ? "cursor-grabbing" : "cursor-grab"
       )}
     >
       <h4 className="font-semibold text-blue-600 mb-1">{deal.name}</h4>

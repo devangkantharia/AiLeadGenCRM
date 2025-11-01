@@ -20,7 +20,8 @@ export function DealLane({
 
   return (
     <div
-      key={stage}
+      ref={setNodeRef} // Apply the droppable ref to the main container
+      key={stage} // key should still be here for React's rendering
       className="bg-gray-100 rounded-lg p-3 min-h-[400px]" // Give it a min-height
     >
       <h3 className="font-semibold mb-3 text-center uppercase text-sm text-gray-500 tracking-wider">
@@ -35,7 +36,7 @@ export function DealLane({
         items={deals.map((d) => d.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div ref={setNodeRef} className="space-y-3">
+        <div className="space-y-3">
           {deals.length === 0 && (
             <p className="text-sm text-gray-500 text-center py-4">No deals</p>
           )}
