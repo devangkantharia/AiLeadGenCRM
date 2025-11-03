@@ -312,3 +312,126 @@ export async function updateDeal(dealId: string, values: { name: string; value: 
   revalidatePath(`/companies/${data?.companyId}`);
   return data;
 }
+
+// GET All Sequences (for the main /sequences page)
+export async function getEmailSequences() {
+  const { userId: clerkId } = auth();
+  if (!clerkId) throw new Error("User not authenticated");
+  const userId = await getUserId(clerkId);
+
+  const { data, error } = await supabaseAdmin
+    .from("EmailSequence")
+    .select("*")
+    .eq("ownerId", userId)
+    .order("createdAt", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching sequences:", error);
+    throw new Error("Failed to fetch sequences");
+  }
+  return data;
+}
+
+// CREATE a new, empty sequence
+export async function createEmailSequence(name: string) {
+  const { userId: clerkId } = auth();
+  if (!clerkId) throw new Error("User not authenticated");
+  const userId = await getUserId(clerkId);
+
+  const { data: newSequence, error } = await supabaseAdmin
+    .from("EmailSequence")
+    .insert([{ name, ownerId: userId }])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating sequence:", error);
+    throw new Error("Failed to create sequence");
+  }
+
+  revalidatePath("/sequences");
+  return newSequence;
+}
+
+// --- NEW SEQUENCE EMAIL ACTIONS ---
+
+// GET a single sequence and all its emails
+export async function getSequenceDetails(sequenceId: string) {
+  const { userId: clerkId } = auth();
+  if (!clerkId) throw new Error("User not authenticated");
+  const userId = await getUserId(clerkId);
+
+  // 1. Get the sequence itself to make sure we own it
+  const { data: sequence, error: seqError } = await supabaseAdmin
+    .from("EmailSequence")
+    .select("*")
+    .eq("id", sequenceId)
+    .eq("ownerId", userId)
+    .single();
+
+  if (seqError || !sequence) {
+    throw new Error("Sequence not found");
+  }
+
+  // 2. Get all emails in that sequence
+  const { data: emails, error: emailsError } = await supabaseAdmin
+    .from("SequenceEmail")
+    .select("*")
+    .eq("sequenceId", sequenceId)
+    .eq("ownerId", userId)
+    .order("day", { ascending: true }); // Order by day 1, 3, 7...
+
+  if (emailsError) {
+    throw new Error("Could not fetch emails for this sequence");
+  }
+
+  // Return both the main sequence folder and the emails inside it
+  return { sequence, emails };
+}
+
+// UPSERT (Create or Update) an email in a sequence
+export async function upsertSequenceEmail(emailData: {
+  id?: string; // If this is present, we update
+  sequenceId: string;
+  ownerId: string;
+  day: number;
+  subject: string;
+  content: any; // This will be the JSON from Blocknote
+}) {
+  const { id, ...dataToUpsert } = emailData;
+
+  const { data: newEmail, error } = await supabaseAdmin
+    .from("SequenceEmail")
+    .upsert(dataToUpsert, { onConflict: "id" }) // 'id' must be unique
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error upserting email:", error);
+    throw new Error("Failed to save email");
+  }
+
+  revalidatePath(`/sequences/${dataToUpsert.sequenceId}`);
+  return newEmail;
+}
+
+// DELETE an email from a sequence
+export async function deleteSequenceEmail(emailId: string, sequenceId: string) {
+  const { userId: clerkId } = auth();
+  if (!clerkId) throw new Error("User not authenticated");
+  const userId = await getUserId(clerkId);
+
+  const { error } = await supabaseAdmin
+    .from("SequenceEmail")
+    .delete()
+    .eq("id", emailId)
+    .eq("ownerId", userId); // Security check
+
+  if (error) {
+    console.error("Error deleting email:", error);
+    throw new Error("Failed to delete email");
+  }
+
+  revalidatePath(`/sequences/${sequenceId}`);
+  return { success: true };
+}
