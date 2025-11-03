@@ -11,18 +11,7 @@ import { updatePersonSchema } from "@/lib/schemas";
 // --- END FIX ---
 import { updatePerson } from "@/lib/actions/crm.actions";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button, Dialog, Flex, Text, TextField } from "@radix-ui/themes";
 
 export function EditPersonButton({ person }: { person: any }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,14 +52,15 @@ export function EditPersonButton({ person }: { person: any }) {
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">Edit</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Edit {person.firstName}</DialogTitle>
-        </DialogHeader>
+    <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog.Trigger>
+        <Button variant="outline">Edit</Button>
+      </Dialog.Trigger>
+      <Dialog.Content className="sm:max-w-[425px]">
+        <Dialog.Title>Edit {person.firstName}</Dialog.Title>
+        <Dialog.Description className="text-gray-600 text-sm mt-2 mb-4">
+          Make changes to this person's details here. Click save when you're done.
+        </Dialog.Description>
 
         <form
           onSubmit={(e) => {
@@ -85,8 +75,8 @@ export function EditPersonButton({ person }: { person: any }) {
             name="firstName"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>First Name</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>First Name</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   value={field.state.value}
@@ -94,9 +84,9 @@ export function EditPersonButton({ person }: { person: any }) {
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors && (
-                  <p className="text-red-500 text-sm">
+                  <Text as="p" className="text-red-500 text-sm">
                     {field.state.meta.errors.join(", ")}
-                  </p>
+                  </Text>
                 )}
               </div>
             )}
@@ -107,8 +97,8 @@ export function EditPersonButton({ person }: { person: any }) {
             name="lastName"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Last Name</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>Last Name</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   value={field.state.value}
@@ -124,8 +114,8 @@ export function EditPersonButton({ person }: { person: any }) {
             name="email"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Email</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>Email</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   type="email"
@@ -134,9 +124,9 @@ export function EditPersonButton({ person }: { person: any }) {
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors && (
-                  <p className="text-red-500 text-sm">
+                  <Text as="p" className="text-red-500 text-sm">
                     {field.state.meta.errors.join(", ")}
-                  </p>
+                  </Text>
                 )}
               </div>
             )}
@@ -147,8 +137,8 @@ export function EditPersonButton({ person }: { person: any }) {
             name="phone"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Phone</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>Phone</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   value={field.state.value}
@@ -164,8 +154,8 @@ export function EditPersonButton({ person }: { person: any }) {
             name="title"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Title</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>Title</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   value={field.state.value}
@@ -177,18 +167,20 @@ export function EditPersonButton({ person }: { person: any }) {
             )}
           />
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="ghost">
+          <Flex gap="3" mt="4" justify="end">
+            <Dialog.Close>
+              <Button type="button" variant="soft">
                 Cancel
               </Button>
-            </DialogClose>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogFooter>
+            </Dialog.Close>
+            <Dialog.Close>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </Dialog.Close>
+          </Flex>
         </form>
-      </DialogContent>
-    </Dialog>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }

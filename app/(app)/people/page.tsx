@@ -1,12 +1,13 @@
 // Location: /app/(app)/people/page.tsx
 "use client";
 
+import React, { useState } from "react";
 import { getPeople } from "@/lib/actions/crm.actions";
 import { useQuery } from "@tanstack/react-query";
 import { CreatePersonButton } from "@/components/crm/CreatePersonButton";
-import React from "react";
 // --- 1. IMPORT THE NEW BUTTON ---
 import { EditPersonButton } from "@/components/crm/EditPersonButton";
+import { Box, Flex, Heading, Table, Text, useThemeContext, TextField, Card } from "@radix-ui/themes";
 
 type PersonWithCompany = {
   id: string;
@@ -30,84 +31,125 @@ export default function PeoplePage() {
     queryFn: () => getPeople(),
   });
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const { accentColor: currentAccentColor, appearance } = useThemeContext();
+  const isDarkMode = appearance === 'dark';
+
+  const filteredPeople =
+    people?.filter((person: any) => {
+      const searchTermLower = searchTerm.toLowerCase();
+      const fullName =
+        `${person.firstName || ""} ${person.lastName || ""}`.toLowerCase();
+      const email = (person.email || "").toLowerCase();
+      const companyName = (person.Company?.name || "").toLowerCase();
+      const title = (person.title || "").toLowerCase();
+
+      return (
+        fullName.includes(searchTermLower) ||
+        email.includes(searchTermLower) ||
+        companyName.includes(searchTermLower) ||
+        title.includes(searchTermLower)
+      );
+    }) || [];
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">People</h1>
+    <Box>
+      <Flex justify={"between"} align={"baseline"} mb={"5"}>
+        <Heading color={currentAccentColor} size="7">People</Heading>
         <CreatePersonButton />
-      </div>
+      </Flex>
+
+      <Box className="mb-4">
+        <TextField.Root
+          placeholder="Search people by name, company, email, or title..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-sm"
+        />
+      </Box>
 
       {isLoading && <p>Loading people...</p>}
       {error && (
-        <p className="text-red-500">
+        <Text as="p" className="text-red-500">
           Error loading people: {(error as Error).message}
-        </p>
+        </Text>
       )}
 
       {people && (
-        <div className="bg-white shadow rounded-lg">
-          {people.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 border rounded-lg">
-              <h3 className="text-xl font-semibold">No people found</h3>
-              <p className="text-gray-500 mt-2">
-                Create your first person to get started!
-              </p>
-            </div>
+        <Card className="shadow rounded-lg">
+          {filteredPeople.length === 0 ? (
+            <Flex justify={"center"} className="h-64 p-28">
+              <Text as="p" className="padding-4">
+                {searchTerm ? "No people match your search" : "No people found"}
+              </Text>
+              {!searchTerm && (
+                <Text as="p" className=" mt-2">
+                  Create your first person to get started!
+                </Text>
+              )}
+            </Flex>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Title
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Company
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email & Phone
-                  </th>
-                  {/* --- 2. ADD ACTION COLUMN HEADER --- */}
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {people.map((person: any) => ( // Use 'any' to include all person fields
-                  <tr key={person.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {person.firstName} {person.lastName}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-700">
-                        {person.title || "N/A"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-700">
-                        {person.Company?.name || "N/A"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      <div>{person.email || "N/A"}</div>
-                      <div>{person.phone || "N/A"}</div>
-                    </td>
-                    {/* --- 3. ADD THE EDIT BUTTON --- */}
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <EditPersonButton person={person} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <Flex direction="column" gap="0">
+              <Table.Root
+                size={{ initial: "1", sm: "2" }}
+              >
+                <Table.Header className="">
+                  <Table.Row>
+                    <Table.ColumnHeaderCell className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: `var(--accent-11)` }}>
+                      Name
+                    </Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: `var(--accent-11)` }}>
+                      Title
+                    </Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: `var(--accent-11)` }}>
+                      Company
+                    </Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: `var(--accent-11)` }}>
+                      Email & Phone
+                    </Table.ColumnHeaderCell>
+                    {/* --- 2. ADD ACTION COLUMN HEADER --- */}
+                    <Table.ColumnHeaderCell className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider" style={{ color: `var(--accent-11)` }}>
+                      Actions
+                    </Table.ColumnHeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body className="">
+                  {filteredPeople.map((person: any) => (
+                    <Table.Row key={person.id} className="">
+                      <Table.Cell className="px-6 py-4 whitespace-nowrap" style={{ color: `var(--accent-9)`, fontWeight: 500 }}>
+                        <div className="text-sm font-medium ">
+                          {person.firstName} {person.lastName}
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell className="px-6 py-4 whitespace-nowrap" style={{ color: `var(--accent-9)` }}>
+                        <div className="text-sm ">
+                          {person.title || "N/A"}
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell className="px-6 py-4 whitespace-nowrap" style={{ color: `var(--accent-9)` }}>
+                        <div className="text-sm ">
+                          {person.Company?.name || "N/A"}
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: `var(--accent-9)` }}>
+                        <div>{person.email || "N/A"}</div>
+                        <div>{person.phone || "N/A"}</div>
+                      </Table.Cell>
+                      {/* --- 3. ADD THE EDIT BUTTON --- */}
+                      <Table.Cell className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ color: `var(--accent-9)` }}>
+                        <EditPersonButton person={person} />
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
+
+
+
+            </Flex>
           )}
-        </div>
+        </Card>
       )}
-    </div>
+    </Box>
   );
 }

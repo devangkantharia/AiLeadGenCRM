@@ -4,8 +4,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import MessageContent from '@/components/MessageContent';
+import { useQueryClient } from '@tanstack/react-query';
 import Citation from '@/components/Citation';
 import { toast } from 'sonner';
+import { Button, Flex, TextArea, Box, Heading, useThemeContext } from '@radix-ui/themes';
 
 interface Message {
   id: string;
@@ -14,18 +16,24 @@ interface Message {
   citations?: any[];
 }
 
+const Spinner = () => (
+  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gray-900"></div>
+);
+
 export function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const queryClient = useQueryClient();
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const currentAccentColor = useThemeContext().accentColor;
 
   useEffect(() => {
-    // focus the input after client mounts to avoid SSR/CSR attribute mismatch
-    inputRef.current?.focus();
-  }, []);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
   };
 
@@ -44,7 +52,9 @@ export function AIAssistant() {
     setInput('');
     setIsLoading(true);
 
-    // insert a placeholder assistant message (will be replaced)
+    // Truncate messages to the last 4 to avoid exceeding token limits
+    const truncatedHistory = messages.slice(-4);
+
     const assistantId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
 
@@ -52,92 +62,102 @@ export function AIAssistant() {
       const res = await fetch('/api/ai/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: input }),
+        body: JSON.stringify({ prompt: input, history: truncatedHistory }),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        // If the response is not JSON (server error), normalize the error
+        data = { error: `Server returned ${res.status}` };
+      }
       const output = data?.output ?? data?.error ?? "No response";
 
-      if (typeof output === 'string' && output.startsWith('Successfully saved')) {
-        toast.success(output);
+      // Check if the output is a JSON string indicating a successful save
+      try {
+        const result = JSON.parse(output);
+        if (result.message && result.newCompany) {
+          toast.success(result.message);
+
+          // Optimistically update the 'companies' query cache
+          queryClient.setQueryData(['companies'], (oldData: any[] | undefined) => {
+            const newData = oldData ? [...oldData] : [];
+            newData.unshift(result.newCompany); // Add the new company to the beginning of the list
+            return newData;
+          });
+        }
+      } catch (e) {
+        // If parsing fails, it's just a regular text response from the AI
+        // No optimistic update needed.
       }
 
       setMessages(prev =>
         prev.map(msg => (msg.id === assistantId ? { ...msg, content: output } : msg))
       );
-    } catch (err) {
-      setMessages(prev =>
-        prev.map(msg => (msg.id === assistantId ? { ...msg, content: 'Sorry, error processing request.' } : msg))
-      );
-      console.error(err);
+    } catch (err: any) {
+      // Handle aborted fetch separately
+      if (err.name === 'AbortError') {
+        setMessages(prev => prev.map(msg => (msg.id === assistantId ? { ...msg, content: 'Request aborted.' } : msg)));
+      } else {
+        setMessages(prev => prev.map(msg => (msg.id === assistantId ? { ...msg, content: 'Sorry, error processing request.' } : msg)));
+        console.error(err);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const hasMessages = messages.length > 0;
-
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md border">
-      <h2 className="text-xl font-semibold mb-4">AI Sales Assistant</h2>
+    <Flex direction="column" style={{ height: '400px' }}>
+      <Box p="4">
+        <Heading color={currentAccentColor} as="h2" size="4">AI Sales Assistant</Heading>
+      </Box>
 
-      {/* Chat Messages */}
-      <div className="md:max-w-4xl mx-auto px-4 md:px-6 py-6 pt-20 pb-24 space-y-6">
-        <div className="space-y-6">
-          {messages.map((message) => (
-            <div key={message.id}>
-              <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`rounded-lg py-3 px-4 max-w-[85%] ${message.role === 'user' ? 'bg-[var(--secondary-darker)] rounded text-black text-base' : 'text-gray-900 text-base'}`}>
-                  <div className="whitespace-pre-wrap text-[15px]">
-                    <MessageContent content={message.content} />
-                  </div>
-                  {message.citations && message.citations.length > 0 && (
-                    <Citation citations={message.citations} />
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+      <Flex direction="column" p="4" gap="4" style={{ flexGrow: 1, overflowY: 'auto' }}>
+        {messages.map((message) => (
+          <Flex key={message.id} justify={message.role === 'user' ? 'end' : 'start'}>
+            <Box style={{ whiteSpace: 'pre-wrap' }}>
+              {message.content ? (
+                <MessageContent content={message.content} />
+              ) : (
+                <Spinner />
+              )}
+              {message.citations && message.citations.length > 0 && (
+                <Box mt="2"><Citation citations={message.citations} /></Box>
+              )}
+            </Box>
+          </Flex>
+        ))}
+        <div ref={messagesEndRef} />
+      </Flex>
 
-          {/* Loading indicator */}
-          {isLoading && (
-            <div className="flex items-center gap-2 text-gray-500 animate-pulse">
-              <div className="w-2 h-2 rounded-full bg-[var(--secondary-accent2x)] animate-[bounce_1s_infinite]"></div>
-              <div className="w-2 h-2 rounded-full bg-[var(--secondary-accent2x)] animate-[bounce_1s_infinite_200ms]"></div>
-              <div className="w-2 h-2 rounded-full bg-[var(--secondary-accent2x)] animate-[bounce_1s_infinite_400ms]"></div>
-              <span className="text-sm font-medium text-[var(--secondary-accent2x)]">Thinking...</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Input Form */}
-      <div className={` z-40 transition-all duration-300`}>
-        <div className={`${hasMessages ? 'w-full md:max-w-4xl mx-auto px-4 md:px-6 py-4 relative' : 'w-full md:max-w-2xl mx-auto px-4 md:px-6'}`}>
-          <form onSubmit={handleSubmit} className="relative flex w-full">
-            <input
+      <div className="p-4 ">
+        <form onSubmit={handleSubmit}>
+          <Flex align="stretch" gap="2">
+            <TextArea
               ref={inputRef}
+              variant={"soft"}
+              color={'gray'}
+              placeholder="Ask something to find and save new leads..."
               value={input}
+              style={{ flexGrow: 1 }}
               onChange={handleInputChange}
-              placeholder="Ask something..."
-              className="w-full p-4 pr-[130px] bg-white border border-gray-200 rounded-full shadow-sm 
-              focus:outline-none focus:ring-1 focus:ring-[var(--brand-default)] focus:ring-opacity-20 
-              focus:border-[var(--brand-default)] text-base transition-all duration-200 
-              placeholder:text-gray-400 hover:border-gray-300"
+              disabled={isLoading} className="p-5 shadow-md hover:shadow-lg transition-shadow border border-transparent hover:border-blue-500"
             />
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className="bg-blue-600 absolute right-2 top-1/2 -translate-y-1/2 px-6 py-2.5  
-              text-white rounded-full shadow-sm hover:bg-blue-800 disabled:opacity-50 
-              disabled:cursor-not-allowed font-medium min-w-[110px] transition-all duration-200 
-              hover:shadow-md active:transform active:scale-95"
-            >
-              Search
-            </button>
-          </form>
-        </div>
+            <Box className="shadow-md hover:shadow-lg border rounded-lg">
+              <Button
+                variant="soft"
+                style={{ height: '64px', width: '100%' }}
+                type="submit"
+                disabled={!input.trim() || isLoading}
+              >
+                {isLoading ? <Spinner /> : 'Send'}
+              </Button>
+            </Box>
+          </Flex>
+        </form>
       </div>
-    </div>
+    </Flex>
   );
 }

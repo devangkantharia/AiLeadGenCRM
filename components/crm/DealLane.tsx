@@ -6,6 +6,7 @@ import React from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DealCard } from "./DealCard";
+import { Box, Heading, Text, useThemeContext } from "@radix-ui/themes";
 
 export function DealLane({
   stage,
@@ -18,15 +19,19 @@ export function DealLane({
     id: stage, // The ID of this "drop zone" is the stage name
   });
 
+  const { accentColor: currentAccentColor, appearance } = useThemeContext();
+  const isDarkMode = appearance === 'dark';
+
+
   return (
-    <div
+    <Box
       ref={setNodeRef} // Apply the droppable ref to the main container
       key={stage} // key should still be here for React's rendering
-      className="bg-gray-100 rounded-lg p-3 min-h-[400px]" // Give it a min-height
+      className={`p-4 rounded-lg shadow-sm h-full flex flex-col ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-100 border-gray-200'}`}
     >
-      <h3 className="font-semibold mb-3 text-center uppercase text-sm text-gray-500 tracking-wider">
-        {stage}
-      </h3>
+
+      <Heading color={currentAccentColor} size="3" mb="6">{stage}</Heading>
+
 
       {/* This context tells dnd-kit that the items inside here are sortable 
         and provides the list of their IDs
@@ -36,15 +41,15 @@ export function DealLane({
         items={deals.map((d) => d.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="space-y-3">
+        <Box className="space-y-3 flex-grow overflow-y-auto">
           {deals.length === 0 && (
-            <p className="text-sm text-gray-500 text-center py-4">No deals</p>
+            <Text as="p" className="text-sm text-gray-500 text-center py-4">No deals</Text>
           )}
           {deals.map((deal) => (
             <DealCard key={deal.id} deal={deal} />
           ))}
-        </div>
+        </Box>
       </SortableContext>
-    </div>
+    </Box>
   );
 }

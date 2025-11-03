@@ -12,6 +12,7 @@ import { ActivityForm } from "@/components/crm/ActivityForm"; // <-- This was th
 import { cn } from "@/lib/utils";
 import { EditPersonButton } from "@/components/crm/EditPersonButton";
 import { EditDealButton } from "@/components/crm/EditDealButton"; // <-- New import for EditDealButton
+import { Card, Flex, Heading, Text, Box, Grid, useThemeContext } from "@radix-ui/themes";
 // --- END FIX ---
 
 
@@ -71,6 +72,9 @@ export default function SingleCompanyPage({
 }: {
   params: { id: string };
 }) {
+  // --- FIX: Move hook call to the top level ---
+  const { accentColor: currentAccentColor, appearance } = useThemeContext();
+
   const companyId = params.id;
 
   const {
@@ -88,9 +92,9 @@ export default function SingleCompanyPage({
 
   if (error) {
     return (
-      <p className="text-red-500">
+      <Text as="p" className="text-red-500">
         Error loading company: {(error as Error).message}
-      </p>
+      </Text>
     );
   }
 
@@ -101,112 +105,94 @@ export default function SingleCompanyPage({
   const typedCompany = company as any;
 
   return (
-    <div className="space-y-8">
+    <Box className="space-y-8">
       {/* --- 1. HEADER --- */}
-      <div className="flex justify-between items-center">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold">{typedCompany.name}</h1>
-            <span
-              className={cn(
-                "text-sm font-medium px-2.5 py-0.5 rounded-full",
-                getStatusColor(typedCompany.status)
-              )}
-            >
-              {typedCompany.status}
-            </span>
-          </div>
-          <div className="text-md text-gray-600 mt-2 space-x-4">
-            <span>{typedCompany.industry || "No industry"}</span>
-            <span>&middot;</span>
-            <span>{typedCompany.size || "No size"}</span>
-            <span>&middot;</span>
-            <span>{typedCompany.geography || "No geography"}</span>
-          </div>
-        </div>
-      </div>
+      <Flex justify="between" align="center">
+        <Box>
+          <Flex align="center" gap="3" mb="2">
+            <Heading color={currentAccentColor} size="7">{typedCompany.name}</Heading>
+            <Text size="2" className={cn("px-2.5 py-0.5 rounded-full", getStatusColor(typedCompany.status))}>{typedCompany.status}</Text>
+          </Flex>
+          <Flex gap="4" mt="2">
+            <Text style={{ color: `var(--accent-11)` }} as="span" weight="regular">{typedCompany.industry || "No industry"}</Text>
+            <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">{typedCompany.size || "No size"}</Text>
+            <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">{typedCompany.geography || "No geography"}</Text>
+          </Flex>
+        </Box>
+      </Flex>
 
       {/* --- 2. 3-COLUMN LAYOUT --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
+      <Grid gap="8" columns={{ initial: "1", md: "2", lg: "3" }}>
         {/* --- COLUMN 1: PEOPLE --- */}
-        <div className="space-y-4">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <UsersIcon /> People
-            </h2>
+        <Box width="auto" minWidth="300px">
+          <Flex justify="between" align="center" mb="2">
+            <Text style={{ minHeight: `50px`, color: `var(--accent-11)` }} as="div" weight="bold">People</Text>
             <CreatePersonButton companyId={typedCompany.id} />
-          </div>
-          <div className="space-y-3">
+          </Flex>
+          <Box>
             {typedCompany.Person?.length === 0 && (
-              <div className="text-sm text-gray-500 bg-white p-4 rounded-lg shadow border text-center">No people associated.</div>
+              <Card mb="3" style={{ padding: `16px 15px` }}><Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">No people associated.</Text></Card>
             )}
             {typedCompany.Person?.map((person: any) => (
-              <div key={person.id} className="bg-white p-4 rounded-lg shadow border relative">
-                <div className="absolute top-1 right-1">
+              <Card key={person.id} mb="3">
+                <Flex justify="between" align="center">
+                  <Box>
+                    <Text style={{ color: `var(--accent-11)` }} as="span" weight="medium" size="3">{person.firstName} {person.lastName} - </Text>
+                    <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">{person.title || 'N/A'}</Text>
+                    <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">{person.email}</Text>
+                  </Box>
                   <EditPersonButton person={person} />
-                </div>
-                <h3 className="font-semibold">{person.firstName} {person.lastName}</h3>
-                <p className="text-sm text-gray-600">{person.title || 'N/A'}</p>
-                <p className="text-sm text-gray-500 mt-1">{person.email}</p>
-              </div>
+                </Flex>
+              </Card>
             ))}
-          </div>
-        </div>
+          </Box>
+        </Box>
 
         {/* --- COLUMN 2: DEALS --- */}
-        <div className="space-y-4">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <DollarSignIcon /> Deals
-            </h2>
+        <Box width="auto" minWidth="300px">
+          <Flex justify="between" align="center" mb="2">
+            <Text style={{ minHeight: `50px`, color: `var(--accent-11)` }} as="div" weight="bold">Deals</Text>
             <CreateDealButton companyId={typedCompany.id} />
-          </div>
-          <div className="space-y-3">
+          </Flex>
+          <Box>
             {typedCompany.Deal?.length === 0 && (
-              <div className="text-sm text-gray-500 bg-white p-4 rounded-lg shadow border text-center">No deals associated.</div>
+              <Card mb="3" style={{ padding: `16px 15px` }}><Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">No deals associated.</Text></Card>
             )}
             {typedCompany.Deal?.map((deal: any) => (
-              <div key={deal.id} className="bg-white p-4 rounded-lg shadow border">
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="font-semibold text-blue-600">{deal.name}</h3>
+              <Card key={deal.id} mb="3">
+                <Flex justify="between" align="center" mb="1">
+                  <Text style={{ color: `var(--accent-11)` }} as="span" weight="medium" size="3">{deal.name}</Text>
                   <EditDealButton deal={deal} />
-                </div>
-                <p className="text-sm font-semibold text-gray-900">{currencyFormatter.format(deal.value)}</p>
-                <p className="text-sm text-gray-600">{deal.stage}</p>
-                <p className="text-xs text-gray-500 mt-1">Closes: {dateFormatter.format(new Date(deal.closesAt))}</p>
-              </div>
+                </Flex>
+                <Text style={{ color: `var(--accent-8)` }} as="span" weight="medium">{currencyFormatter.format(deal.value)} - </Text>
+                <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">{deal.stage}</Text>
+                <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">Closes: {dateFormatter.format(new Date(deal.closesAt))}</Text>
+              </Card>
             ))}
-          </div>
-        </div>
+          </Box>
+        </Box>
 
         {/* --- COLUMN 3: ACTIVITY (UPDATED) --- */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold flex items-center gap-2 mb-2">
-            <ActivityIcon /> Activity
-          </h2>
-
+        <Box width="auto" minWidth="300px">
+          <Text style={{ minHeight: `50px`, color: `var(--accent-11)` }} as="div" weight="bold">Activity</Text>
           <ActivityForm companyId={typedCompany.id} />
-
-          <div className="space-y-6 border-l-2 border-gray-200 pl-6 pt-4">
+          <Box mt={"20px"}>
             {typedCompany.Event?.length === 0 && (
-              <div className="text-sm text-gray-500 text-center">No activity recorded.</div>
+              <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">No activity recorded.</Text>
             )}
             {typedCompany.Event?.map((event: any, index: number) => (
-              <div key={event.id} className="relative">
-                <div className="absolute -left-7 top-1 h-3 w-3 rounded-full bg-gray-400"></div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm font-semibold flex items-center gap-1.5">
-                    <EventIcon type={event.type} /> {event.type}
-                  </span>
-                  <span className="text-xs text-gray-500">{dateFormatter.format(new Date(event.date))}</span>
-                </div>
-                <p className="text-sm text-gray-700 bg-white p-3 rounded-md shadow border">{event.content}</p>
-              </div>
+              <Box key={event.id} position="relative" mb="6">
+                <Box style={{ position: "absolute", left: -28, top: 4, height: 12, width: 12, borderRadius: "50%", background: "#9ca3af" }} />
+                <Flex justify="between" align="center" mb="1">
+                  <Text style={{ color: `var(--accent-11)` }} as="span" weight="medium">{event.type} - </Text>
+                  <Text style={{ color: `var(--accent-11)` }} as="span" weight="regular">{dateFormatter.format(new Date(event.date))}</Text>
+                </Flex>
+                <Card><Text>{event.content}</Text></Card>
+              </Box>
             ))}
-          </div>
-        </div>
-      </div>
-    </div>
+          </Box>
+        </Box>
+      </Grid>
+    </Box>
   );
 }

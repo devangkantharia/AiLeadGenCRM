@@ -7,18 +7,7 @@ import { useForm } from "@tanstack/react-form";
 import { dealFormSchema } from "@/lib/schemas";
 import { createDeal, getCompanies } from "@/lib/actions/crm.actions";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button, Dialog, Flex, Text, TextField } from "@radix-ui/themes";
 
 const STAGES = ["Discovery", "Proposal", "Negotiation", "Won", "Lost"] as const;
 type Stage = (typeof STAGES)[number];
@@ -65,14 +54,15 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
+    <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog.Trigger>
         <Button>New Deal</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Create New Deal</DialogTitle>
-        </DialogHeader>
+      </Dialog.Trigger>
+      <Dialog.Content className="sm:max-w-[425px]">
+        <Dialog.Title>Create New Deal</Dialog.Title>
+        <Dialog.Description className="text-gray-600 text-sm mt-2 mb-4">
+          Enter the details for the new deal. Click save when you're done.
+        </Dialog.Description>
 
         <form
           onSubmit={(e) => {
@@ -87,8 +77,8 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
             name="name"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Deal Name</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>Deal Name</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   value={field.state.value}
@@ -97,9 +87,9 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
                   placeholder="e.g., 'Q4 Platform Contract'"
                 />
                 {field.state.meta.errors && (
-                  <p className="text-red-500 text-sm">
+                  <Text as="p" className="text-red-500 text-sm">
                     {field.state.meta.errors.join(", ")}
-                  </p>
+                  </Text>
                 )}
               </div>
             )}
@@ -111,7 +101,7 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
               name="companyId"
               children={(field) => (
                 <div className="space-y-2">
-                  <Label htmlFor={field.name}>Company</Label>
+                  <Text as="label" htmlFor={field.name}>Company</Text>
                   <select
                     id={field.name}
                     name={field.name}
@@ -135,9 +125,9 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
                     ))}
                   </select>
                   {field.state.meta.errors && (
-                    <p className="text-red-500 text-sm">
+                    <Text as="p" className="text-red-500 text-sm">
                       {field.state.meta.errors.join(", ")}
-                    </p>
+                    </Text>
                   )}
                 </div>
               )}
@@ -149,8 +139,8 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
             name="value"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Value ($)</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>Value ($)</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   type="number"
@@ -161,9 +151,9 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
                   }
                 />
                 {field.state.meta.errors && (
-                  <p className="text-red-500 text-sm">
+                  <Text as="p" className="text-red-500 text-sm">
                     {field.state.meta.errors.join(", ")}
-                  </p>
+                  </Text>
                 )}
               </div>
             )}
@@ -174,7 +164,7 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
             name="stage"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Stage</Label>
+                <Text as="label" htmlFor={field.name}>Stage</Text>
                 <select
                   id={field.name}
                   name={field.name}
@@ -200,8 +190,8 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
             name="closesAt"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Estimated Close Date</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>Estimated Close Date</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   type="date"
@@ -215,18 +205,20 @@ export function CreateDealButton({ companyId }: { companyId?: string }) {
             )}
           />
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="ghost">
+          <Flex gap="3" mt="4" justify="end">
+            <Dialog.Close>
+              <Button type="button" variant="soft">
                 Cancel
               </Button>
-            </DialogClose>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving..." : "Save Deal"}
-            </Button>
-          </DialogFooter>
+            </Dialog.Close>
+            <Dialog.Close>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Saving..." : "Save Deal"}
+              </Button>
+            </Dialog.Close>
+          </Flex>
         </form>
-      </DialogContent>
-    </Dialog>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }

@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/core";
 import { DealLane } from "@/components/crm/DealLane";
 import { DealCard } from "@/components/crm/DealCard";
+import { Box, Flex, Grid, Heading, Text, useThemeContext } from "@radix-ui/themes";
 
 const STAGES = ["Discovery", "Proposal", "Negotiation", "Won", "Lost"] as const;
 type Stage = (typeof STAGES)[number];
@@ -129,9 +130,12 @@ export default function DealsPage() {
     return localDeals?.filter((deal: any) => deal.stage === stage) || [];
   };
 
+  const { accentColor: currentAccentColor, appearance } = useThemeContext();
+  const isDarkMode = appearance === 'dark';
+
   // Use the local state for rendering, but the query state for loading/error
   if (isLoading) return <p>Loading deals...</p>;
-  if (error) return <p className="text-red-500">Error loading deals: {(error as Error).message}</p>;
+  if (error) return <Text as="p" className="text-red-500">Error loading deals: {(error as Error).message}</Text>;
 
   return (
     <DndContext
@@ -139,13 +143,13 @@ export default function DealsPage() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Deals Pipeline</h1>
+      <Box>
+        <Flex justify={"between"} align={"baseline"} mb={"5"}>
+          <Heading color={currentAccentColor} size="7">Deals Pipeline</Heading>
           <CreateDealButton />
-        </div>
+        </Flex>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <Grid columns="5" gap="4" width="auto" className="h-[80vh]">
           {STAGES.map((stage) => (
             <DealLane
               key={stage}
@@ -153,8 +157,8 @@ export default function DealsPage() {
               deals={dealsInStage(stage)}
             />
           ))}
-        </div>
-      </div>
+        </Grid>
+      </Box>
       <DragOverlay>
         {activeDeal ? (
           <DealCard deal={activeDeal} isOverlay={true} />

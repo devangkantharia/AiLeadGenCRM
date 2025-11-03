@@ -1,11 +1,20 @@
 // Location: /app/(app)/sequences/page.tsx
+"use client";
+
+import { Box, Flex, Heading, Text, useThemeContext } from "@radix-ui/themes";
 import React from "react";
 
 export default function SequencesPage() {
+
+    const { accentColor: currentAccentColor, appearance } = useThemeContext();
+    const isDarkMode = appearance === 'dark';
+
     return (
-        <div>
-            <h1 className="text-2xl font-bold">Email Sequences</h1>
-            <p>This is where the email sequence builder (Blocknote) will go.</p>
-        </div>
+        <Box>
+            <Flex justify={"between"} align={"baseline"} mb={"5"}>
+                <Heading color={currentAccentColor} size="7">Email Sequences</Heading>
+            </Flex>
+            <Text as="p">This is where the email sequence builder (Blocknote) will go.</Text>
+        </Box>
     );
 }

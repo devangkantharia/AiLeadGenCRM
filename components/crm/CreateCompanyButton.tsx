@@ -7,19 +7,8 @@ import { useForm } from "@tanstack/react-form";
 import { companyFormSchema } from "@/lib/schemas";
 import { createCompany } from "@/lib/actions/crm.actions";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button, Dialog, Flex, Text, TextField } from "@radix-ui/themes";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export function CreateCompanyButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -52,14 +41,15 @@ export function CreateCompanyButton() {
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
+    <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog.Trigger>
         <Button>New Company</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Create New Company</DialogTitle>
-        </DialogHeader>
+      </Dialog.Trigger>
+      <Dialog.Content className="sm:max-w-[425px]">
+        <Dialog.Title>Create New Company</Dialog.Title>
+        <Dialog.Description className="text-gray-600 text-sm mt-2 mb-4">
+          Enter the details for the new company. Click save when you're done.
+        </Dialog.Description>
 
         <form
           onSubmit={(e) => {
@@ -76,8 +66,8 @@ export function CreateCompanyButton() {
             }}
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Company Name</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>Company Name</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   value={field.state.value}
@@ -85,9 +75,9 @@ export function CreateCompanyButton() {
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors && (
-                  <p className="text-red-500 text-sm">
+                  <Text as="p" className="text-red-500 text-sm">
                     {field.state.meta.errors.join(", ")}
-                  </p>
+                  </Text>
                 )}
               </div>
             )}
@@ -97,8 +87,8 @@ export function CreateCompanyButton() {
             name="industry"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Industry</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>Industry</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   value={field.state.value}
@@ -114,8 +104,8 @@ export function CreateCompanyButton() {
             name="size"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Company Size</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>Company Size</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   value={field.state.value}
@@ -131,8 +121,8 @@ export function CreateCompanyButton() {
             name="geography"
             children={(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Geography</Label>
-                <Input
+                <Text as="label" htmlFor={field.name}>Geography</Text>
+                <TextField.Root
                   id={field.name}
                   name={field.name}
                   value={field.state.value}
@@ -144,18 +134,20 @@ export function CreateCompanyButton() {
             )}
           />
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="ghost">
+          <Flex gap="3" mt="4" justify="end">
+            <Dialog.Close>
+              <Button type="button" variant="soft">
                 Cancel
               </Button>
-            </DialogClose>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving..." : "Save Company"}
-            </Button>
-          </DialogFooter>
+            </Dialog.Close>
+            <Dialog.Close>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Saving..." : "Save Company"}
+              </Button>
+            </Dialog.Close>
+          </Flex>
         </form>
-      </DialogContent>
-    </Dialog>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }

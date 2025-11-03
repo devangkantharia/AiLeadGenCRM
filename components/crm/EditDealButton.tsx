@@ -7,10 +7,7 @@ import React, { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button, Dialog, Flex, Text, TextField } from "@radix-ui/themes";
 import { updateDealSchema } from "@/lib/schemas";
 import { updateDeal } from "@/lib/actions/crm.actions";
 
@@ -19,7 +16,8 @@ export function EditDealButton({ deal }: { deal: any }) {
   const queryClient = useQueryClient();
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (values: z.infer<typeof updateDealSchema>) => updateDeal(deal.id, values),
+    // --- FIX: Cast the values to the expected type for updateDeal ---
+    mutationFn: (values: z.infer<typeof updateDealSchema>) => updateDeal(deal.id, values as { name: string; value: number }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["deals"] });
       queryClient.invalidateQueries({ queryKey: ["company", deal.companyId] });
@@ -47,14 +45,15 @@ export function EditDealButton({ deal }: { deal: any }) {
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">Edit</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Edit Deal</DialogTitle>
-        </DialogHeader>
+    <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog.Trigger>
+        <Button variant="outline">Edit</Button>
+      </Dialog.Trigger>
+      <Dialog.Content className="sm:max-w-[425px]">
+        <Dialog.Title>Edit Deal</Dialog.Title>
+        <Dialog.Description className="text-gray-600 text-sm mt-2 mb-4">
+          Make changes to your deal here. Click save when you're done.
+        </Dialog.Description>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -65,8 +64,8 @@ export function EditDealButton({ deal }: { deal: any }) {
         >
           <form.Field name="name" children={(field) => (
             <div className="space-y-2">
-              <Label htmlFor={field.name}>Deal Name</Label>
-              <Input
+              <Text as="label" htmlFor={field.name}>Deal Name</Text>
+              <TextField.Root
                 id={field.name}
                 name={field.name}
                 value={field.state.value}
@@ -74,14 +73,14 @@ export function EditDealButton({ deal }: { deal: any }) {
                 onChange={(e) => field.handleChange(e.target.value)}
               />
               {field.state.meta.errors && (
-                <p className="text-red-500 text-sm">{field.state.meta.errors.join(", ")}</p>
+                <Text as="p" className="text-red-500 text-sm">{field.state.meta.errors.join(", ")}</Text>
               )}
             </div>
           )} />
           <form.Field name="value" children={(field) => (
             <div className="space-y-2">
-              <Label htmlFor={field.name}>Amount</Label>
-              <Input
+              <Text as="label" htmlFor={field.name}>Amount</Text>
+              <TextField.Root
                 id={field.name}
                 name={field.name}
                 type="number"
@@ -90,18 +89,25 @@ export function EditDealButton({ deal }: { deal: any }) {
                 onChange={(e) => field.handleChange(Number(e.target.value))}
               />
               {field.state.meta.errors && (
-                <p className="text-red-500 text-sm">{field.state.meta.errors.join(", ")}</p>
+                <Text as="p" className="text-red-500 text-sm">{field.state.meta.errors.join(", ")}</Text>
               )}
             </div>
           )} />
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="ghost">Cancel</Button>
-            </DialogClose>
-            <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save Changes"}</Button>
-          </DialogFooter>
+
+          <Flex gap="3" mt="4" justify="end">
+            <Dialog.Close>
+              <Button type="button" variant="soft">
+                Cancel
+              </Button>
+            </Dialog.Close>
+            <Dialog.Close>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </Dialog.Close>
+          </Flex>
         </form>
-      </DialogContent>
-    </Dialog>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }

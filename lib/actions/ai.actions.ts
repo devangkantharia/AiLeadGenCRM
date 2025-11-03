@@ -49,31 +49,27 @@ async function webSearchHandler(params: { query: string }) {
 
   let allResults: any[] = [];
   try {
-    const queries = [
-      params.query,
-      `${params.query} company profile leadership team`,
-      `${params.query} company information contacts`,
-    ];
-
-    for (const searchQuery of queries) {
-      const searchResponse = await exa.search(searchQuery, {
-        numResults: 5,
-        useAutoprompt: true
-      });
-
-      const ids = searchResponse.results.map(r => r.id);
-      const contentsResponse = await exa.getContents(ids);
-      allResults = allResults.concat(contentsResponse.results);
-    }
+    // Use searchAndContents to perform search and get contents in one call for efficiency.
+    const searchResponse = await exa.searchAndContents(params.query, {
+      numResults: 5, // Fetch 5 results to get a good selection.
+      useAutoprompt: true,
+      text: {
+        includeHtmlTags: false,
+        maxCharacters: 2000 // Limit characters to keep payload reasonable.
+      }
+    });
+    allResults = searchResponse.results;
   } catch (e) {
     console.error("Exa search error:", e);
     throw new Error("Exa search failed");
   }
 
   const uniqueResults = Array.from(new Map(allResults.map(r => [r.url || r.link || r.uri, r])).values());
+  // Limit results to the top N to avoid token bloat
+  const limitedResults = uniqueResults.slice(0, 6);
 
   // (Your excellent data extraction logic)
-  const enriched = uniqueResults.map((r: any, index) => {
+  const enriched = limitedResults.map((r: any, index) => {
     // --- FIX 2: Use 'r.text' for the fullText, not snippet/summary ---
     const fullText = `${r.title || ""} ${r.text || ""} ${r.summary || ""}`;
 
@@ -107,7 +103,8 @@ async function webSearchHandler(params: { query: string }) {
     return {
       title: r.title || r.headline || r.name || r.source || r.url || "",
       url: r.url || r.link || r.uri || "",
-      snippet: (r.text || r.summary || r.excerpt || "").substring(0, 2000), // <-- FIX: Truncate snippet to prevent token overflow
+      // Truncate snippets aggressively to keep the tool output small
+      snippet: (r.text || r.summary || r.excerpt || "").substring(0, 800),
       confidence: r.score || r.confidence || 1.0,
       metadata: {
         company: {
@@ -211,7 +208,11 @@ const saveLeadToCrmHandler = async (
   revalidatePath(`/companies/${companyId}`);
   revalidatePath("/dashboard");
 
-  return `Successfully saved ${params.companyName} to CRM with ${contactsSaved} contacts.`;
+  // Return the full company object along with a success message
+  return JSON.stringify({
+    message: `Successfully saved ${params.companyName} to CRM with ${contactsSaved} contacts.`,
+    newCompany: companyData,
+  });
 };
 
 
@@ -249,9 +250,15 @@ export async function processAIRequest(prompt: string) {
 
     // (Your tool-calling loop logic is perfect)
     while (true) {
+      // Keep the model input small: always include system + last few turns
+      const messagesForModel = [messages[0], ...messages.slice(-6)];
+
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
-        messages,
+        messages: messagesForModel,
+        // limit response size to avoid very large outputs
+        max_tokens: 1024,
+        temperature: 0.2,
         tools: [
           {
             type: "function",
@@ -332,6 +339,10 @@ export async function processAIRequest(prompt: string) {
               result = await webSearchHandler(args);
             } else {
               result = `Tool ${toolName} not found`;
+            }
+            // Truncate any very large tool outputs before adding to messages to avoid token limit errors
+            if (typeof result === 'string' && result.length > 8000) {
+              result = result.slice(0, 8000) + '\n...[truncated output]';
             }
             toolCallSpan.update({ output: result });
           } catch (e: any) {

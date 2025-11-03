@@ -7,6 +7,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { EditDealButton } from "@/components/crm/EditDealButton";
+import { Box, Card, Flex, Text, useThemeContext } from "@radix-ui/themes";
 
 // Re-create our formatters here
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -46,31 +47,41 @@ export function DealCard({
     transition,
   };
 
+  const { accentColor: currentAccentColor, appearance } = useThemeContext();
+  const isDarkMode = appearance === 'dark';
+
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...(!isOverlay ? listeners : {})} // Don't attach listeners to the overlay
-      className={cn(
-        "bg-white p-4 rounded-lg shadow border",
-        isDragging && !isOverlay ? "opacity-50" : "opacity-100", // Make original see-through
-        isOverlay ? "cursor-grabbing" : "cursor-grab"
-      )}
-    >
-      <h4 className="font-semibold text-blue-600 mb-1 flex items-center justify-between">
-        <span>{deal.name}</span>
-        <EditDealButton deal={deal} />
-      </h4>
-      <p className="text-sm text-gray-700 mb-2">
-        {deal.Company?.name || "No Company"}
-      </p>
-      <p className="text-sm font-semibold text-gray-900">
-        {currencyFormatter.format(deal.value)}
-      </p>
-      <p className="text-xs text-gray-500 mt-1">
-        Closes: {dateFormatter.format(new Date(deal.closesAt))}
-      </p>
-    </div>
+    <Card asChild>
+      <Box
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...(!isOverlay ? listeners : {})}
+        className={cn(
+          isDragging && !isOverlay ? "opacity-50" : "opacity-100",
+          isOverlay ? "cursor-grabbing" : "cursor-grab",
+          "border hover:border-blue-500 h-full",
+          isDarkMode ? "border-gray-700" : "border-gray-300"
+        )}
+      >
+        <Flex direction="column" gap="2">
+          <Flex align="center" justify="between">
+            <Text as="span" weight="bold" size="3" color={currentAccentColor}>
+              {deal.name}
+            </Text>
+            <EditDealButton deal={deal} />
+          </Flex>
+          <Text size="2" color={currentAccentColor}>
+            {deal.Company?.name || "No Company"}
+          </Text>
+          <Text size="2" weight="medium" style={{ color: `var(--accent-9)` }} >
+            {currencyFormatter.format(deal.value)}
+          </Text>
+          <Text size="1" color={currentAccentColor}>
+            Closes: {dateFormatter.format(new Date(deal.closesAt))}
+          </Text>
+        </Flex>
+      </Box>
+    </Card>
   );
 }

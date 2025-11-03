@@ -9,10 +9,8 @@ import { useForm } from "@tanstack/react-form";
 import { eventFormSchema } from "@/lib/schemas";
 import { createEvent } from "@/lib/actions/crm.actions"; // <-- This import will now work
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { Box, Button, Card, Flex, Text, TextField, useThemeContext } from "@radix-ui/themes";
 
 const Textarea = React.forwardRef<
   HTMLTextAreaElement,
@@ -35,6 +33,8 @@ type ActivityType = "Note" | "Call" | "Email" | "Task";
 
 export function ActivityForm({ companyId }: { companyId: string }) {
   const [activeTab, setActiveTab] = useState<ActivityType>("Note");
+  const { accentColor: currentAccentColor, appearance } = useThemeContext();
+  const isDarkMode = appearance === 'dark';
   const queryClient = useQueryClient();
 
   const { mutate, isPending } = useMutation({
@@ -76,89 +76,100 @@ export function ActivityForm({ companyId }: { companyId: string }) {
     cn(
       "px-4 py-2 font-medium rounded-t-md cursor-pointer",
       activeTab === tab
-        ? "border-b-2 border-blue-600 text-blue-600"
-        : "text-gray-500 hover:text-gray-700"
+        ? `border-b-2`
+        : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
     );
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow border">
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-4">
-        <div className={tabClass("Note")} onClick={() => setTab("Note")}>Note</div>
-        <div className={tabClass("Call")} onClick={() => setTab("Call")}>Call</div>
-        <div className={tabClass("Email")} onClick={() => setTab("Email")}>Email</div>
-        <div className={tabClass("Task")} onClick={() => setTab("Task")}>Task</div>
-      </div>
+    <Card asChild className="h-full transition-shadow hover:shadow-lg hover:ring-2 hover:ring-blue-500">
+      <Box height={"auto"}>
+        {/* Tabs */}
+        <Flex className={`border-b mb-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+          {(["Note", "Call", "Email", "Task"] as ActivityType[]).map((tab) => (
+            <Box
+              key={tab}
+              className={tabClass(tab)}
+              style={activeTab === tab ? { borderColor: `var(--${currentAccentColor}-9)` } : {}}
+              onClick={() => setTab(tab)}
+            >
+              <Text color={activeTab === tab ? currentAccentColor : undefined} weight="medium">{tab}</Text>
+            </Box>
+          ))}
+        </Flex>
 
-      {/* Form */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          form.handleSubmit();
-        }}
-        className="space-y-4"
-      >
-        {/* Content Field */}
-        <form.Field
-          name="content"
-          validators={{ onChange: eventFormSchema.shape.content }}
-          children={(field) => (
-            <div className="space-y-2">
-              <Label htmlFor={field.name}>
-                {activeTab === 'Note' ? 'Your note...' :
-                  activeTab === 'Call' ? 'Call summary...' :
-                    activeTab === 'Email' ? 'Email content...' :
-                      'Task details...'}
-              </Label>
-              <Textarea
-                id={field.name}
-                name={field.name}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-                placeholder={
-                  activeTab === "Task"
-                    ? "e.g., Follow up with demo"
-                    : "Log details..."
-                }
-              />
-              {field.state.meta.errors && (
-                <p className="text-red-500 text-sm">
-                  {field.state.meta.errors.join(", ")}
-                </p>
-              )}
-            </div>
-          )}
-        />
+        {/* Form */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            form.handleSubmit();
+          }}
+          className="space-y-4"
+        >
+          {/* Content Field */}
+          <form.Field
+            name="content"
+            validators={{ onChange: eventFormSchema.shape.content }}
+            children={(field) => (
+              <Box className="space-y-2">
+                <Text as="label" size="2" weight="medium" color={currentAccentColor} htmlFor={field.name}>
+                  {activeTab === 'Note' ? 'Your note...' :
+                    activeTab === 'Call' ? 'Call summary...' :
+                      activeTab === 'Email' ? 'Email content...' :
+                        'Task details...'}
+                </Text>
+                <Textarea
+                  id={field.name}
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder={
+                    activeTab === "Task"
+                      ? "e.g., Follow up with demo"
+                      : "Log details..."
+                  }
+                  color={currentAccentColor}
+                  className={`p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow border hover:border-blue-500 h-full ${isDarkMode ? 'border-gray-700' : 'border-gray-300'}`}
+                />
+                {field.state.meta.errors && (
+                  <Text as="p" className="text-red-500 text-sm">
+                    {field.state.meta.errors.join(", ")}
+                  </Text>
+                )}
+              </Box>
+            )}
+          />
 
-        {/* Date Field */}
-        <form.Field
-          name="date"
-          validators={{ onChange: eventFormSchema.shape.date }}
-          children={(field) => (
-            <div className="space-y-2">
-              <Label htmlFor={field.name}>
-                {activeTab === 'Task' ? 'Due Date' : 'Date'}
-              </Label>
-              <Input
-                id={field.name}
-                name={field.name}
-                type="date"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
-            </div>
-          )}
-        />
+          {/* Date Field */}
+          <form.Field
+            name="date"
+            validators={{ onChange: eventFormSchema.shape.date }}
+            children={(field) => (
+              <Box className="space-y-2">
+                <Text as="label" size="2" weight="medium" color={currentAccentColor} htmlFor={field.name}>
+                  {activeTab === 'Task' ? 'Due Date' : 'Date'}
+                </Text>
+                <TextField.Root
+                  id={field.name}
+                  name={field.name}
+                  type="date"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  style={{ maxWidth: 140 }}
+                />
+              </Box>
+            )}
+          />
 
-        <div className="flex justify-end">
-          <Button type="submit" disabled={isPending}>
-            {isPending ? "Saving..." : `Save ${activeTab}`}
-          </Button>
-        </div>
-      </form>
-    </div>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Saving..." : `Save ${activeTab}`}
+            </Button>
+          </div>
+        </form>
+      </Box>
+    </Card>
   );
 }

@@ -6,4 +6,5 @@
 /* Add a body background color */
 body {
     @apply bg-gray-50;
+    margin: 0;
 }

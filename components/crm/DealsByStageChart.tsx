@@ -4,7 +4,7 @@
 "use client";
 
 import { useState } from "react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts"; import { Flex, Box, Heading, Text } from "@radix-ui/themes";
 
 // Define the shape of a single deal
 interface Deal {
@@ -46,20 +46,20 @@ export function DealsByStageChart({
     : [];
 
   return (
-    <div className="flex items-start">
-      <div className="w-2/3">
+    <Flex align="start" gap="4">
+      <Box width="66.66%">
         <ResponsiveContainer width="100%" height={300}>
           <PieChart>
             <Pie
               data={data}
               cx="50%"
               cy="50%"
-              labelLine={false}
               outerRadius={100}
               fill="#8884d8"
               dataKey="count"
               nameKey="name"
-              label={(entry) => entry.count} // Show the count on the chart
+              labelLine={false}
+              label={({ name, count }) => `${name}: ${count}`}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
             >
@@ -68,24 +68,21 @@ export function DealsByStageChart({
               ))}
             </Pie>
             <Tooltip />
-            <Legend />
           </PieChart>
         </ResponsiveContainer>
-      </div>
-      <div className="w-1/3 pl-4">
+      </Box>
+      <Box width="33.33%">
         {hoveredStage && dealsForHoveredStage.length > 0 && (
-          <div>
-            <h3 className="font-semibold text-gray-700">{hoveredStage} Deals</h3>
-            <ol className="mt-2 space-y-2 text-sm text-gray-600 list-decimal list-outside pl-5">
+          <Box>
+            <Heading as="h3" size="3" mb="2">{hoveredStage} Deals</Heading>
+            <ol style={{ listStyle: 'decimal', paddingLeft: '20px' }}>
               {dealsForHoveredStage.map((deal) => (
-                <li key={deal.id}>
-                  {deal.name} ({deal.company?.name || "No Company"})
-                </li>
+                <li key={deal.id}><Text size="2" >{deal.name} ({deal.company?.name || "No Company"})</Text></li>
               ))}
             </ol>
-          </div>
+          </Box>
         )}
-      </div>
-    </div>
+      </Box>
+    </Flex>
   );
 }
