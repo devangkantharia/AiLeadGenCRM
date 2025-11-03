@@ -116,27 +116,27 @@ export default function PeoplePage() {
                 <Table.Body className="">
                   {filteredPeople.map((person: any) => (
                     <Table.Row key={person.id} className="">
-                      <Table.Cell className="px-6 py-4 whitespace-nowrap" style={{ color: `var(--accent-9)`, fontWeight: 500 }}>
+                      <Table.Cell className="px-6 py-4 whitespace-nowrap" style={{ color: `var(--accent-9)`, fontWeight: 500, verticalAlign: 'middle' }}>
                         <div className="text-sm font-medium ">
                           {person.firstName} {person.lastName}
                         </div>
                       </Table.Cell>
-                      <Table.Cell className="px-6 py-4 whitespace-nowrap" style={{ color: `var(--accent-9)` }}>
+                      <Table.Cell className="px-6 py-4 whitespace-nowrap" style={{ color: `var(--accent-9)`, verticalAlign: 'middle' }}>
                         <div className="text-sm ">
                           {person.title || "N/A"}
                         </div>
                       </Table.Cell>
-                      <Table.Cell className="px-6 py-4 whitespace-nowrap" style={{ color: `var(--accent-9)` }}>
+                      <Table.Cell className="px-6 py-4 whitespace-nowrap" style={{ color: `var(--accent-9)`, verticalAlign: 'middle' }}>
                         <div className="text-sm ">
                           {person.Company?.name || "N/A"}
                         </div>
                       </Table.Cell>
-                      <Table.Cell className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: `var(--accent-9)` }}>
+                      <Table.Cell className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: `var(--accent-9)`, verticalAlign: 'middle' }}>
                         <div>{person.email || "N/A"}</div>
                         <div>{person.phone || "N/A"}</div>
                       </Table.Cell>
                       {/* --- 3. ADD THE EDIT BUTTON --- */}
-                      <Table.Cell className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ color: `var(--accent-9)` }}>
+                      <Table.Cell className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ color: `var(--accent-9)`, verticalAlign: 'middle' }}>
                         <EditPersonButton person={person} />
                       </Table.Cell>
                     </Table.Row>

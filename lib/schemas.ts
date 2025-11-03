@@ -54,7 +54,7 @@ export const eventFormSchema = z.object({
   dealId: z.string().uuid().optional().nullable(),
   type: z.enum(["Note", "Call", "Email", "Task"]),
   date: z.string().date("Must be a valid date."),
-  content: z.string().min(2, { message: "Content is required." }),
+  content: z.string(),
   isTask: z.boolean().default(false),
   isDone: z.boolean().default(false),
 });

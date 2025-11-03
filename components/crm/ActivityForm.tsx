@@ -109,7 +109,18 @@ export function ActivityForm({ companyId }: { companyId: string }) {
           {/* Content Field */}
           <form.Field
             name="content"
-            validators={{ onChange: eventFormSchema.shape.content }}
+            // --- FIX: Validate onBlur instead of onChange ---
+            // This prevents validation errors from appearing while the user is typing.
+            validators={{
+              onBlur: ({ value }) => {
+                // The field is optional, so an empty string is valid.
+                if (!value) return undefined;
+
+                // If the field is not empty, validate it against the schema.
+                const result = eventFormSchema.shape.content.safeParse(value);
+                return result.success ? undefined : result.error.formErrors.formErrors.join(', ');
+              },
+            }}
             children={(field) => (
               <Box className="space-y-2">
                 <Text as="label" size="2" weight="medium" color={currentAccentColor} htmlFor={field.name}>
@@ -144,7 +155,12 @@ export function ActivityForm({ companyId }: { companyId: string }) {
           {/* Date Field */}
           <form.Field
             name="date"
-            validators={{ onChange: eventFormSchema.shape.date }}
+            // --- FIX: Correctly implement the date validator ---
+            // This was the source of the remaining `props.validate` error.
+            validators={{
+              onChange: ({ value }) =>
+                eventFormSchema.shape.date.safeParse(value).error?.formErrors.formErrors.join(', '),
+            }}
             children={(field) => (
               <Box className="space-y-2">
                 <Text as="label" size="2" weight="medium" color={currentAccentColor} htmlFor={field.name}>

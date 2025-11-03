@@ -22,7 +22,9 @@ export function CreatePersonButton({ companyId }: { companyId?: string }) {
   const { mutate, isPending } = useMutation({
     mutationFn: createPerson,
     onSuccess: () => {
+      // Invalidate the 'people' query to refetch the list on the People page
       queryClient.invalidateQueries({ queryKey: ["people"] });
+      // Invalidate the current company's data to show the new person in the list
       queryClient.invalidateQueries({ queryKey: ["company", companyId] });
       setIsOpen(false);
       form.reset();
