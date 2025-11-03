@@ -64,7 +64,8 @@ export default function PeoplePage() {
           placeholder="Search people by name, company, email, or title..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
+          className="max-w-md"
+          size="3"
         />
       </Box>
 
@@ -78,8 +79,8 @@ export default function PeoplePage() {
       {people && (
         <Card className="shadow rounded-lg">
           {filteredPeople.length === 0 ? (
-            <Flex justify={"center"} className="h-64 p-28">
-              <Text as="p" className="padding-4">
+            <Flex justify={`center`} className="h-64 p-28">
+              <Text as="p" className="p-4">
                 {searchTerm ? "No people match your search" : "No people found"}
               </Text>
               {!searchTerm && (
@@ -108,7 +109,7 @@ export default function PeoplePage() {
                       Email & Phone
                     </Table.ColumnHeaderCell>
                     {/* --- 2. ADD ACTION COLUMN HEADER --- */}
-                    <Table.ColumnHeaderCell className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider" style={{ color: `var(--accent-11)` }}>
+                    <Table.ColumnHeaderCell className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider" style={{ color: `var(--accent-11)`, textAlign: `center`, }}>
                       Actions
                     </Table.ColumnHeaderCell>
                   </Table.Row>
@@ -136,7 +137,7 @@ export default function PeoplePage() {
                         <div>{person.phone || "N/A"}</div>
                       </Table.Cell>
                       {/* --- 3. ADD THE EDIT BUTTON --- */}
-                      <Table.Cell className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ color: `var(--accent-9)`, verticalAlign: 'middle' }}>
+                      <Table.Cell className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ color: `var(--accent-9)`, textAlign: `center`, verticalAlign: 'middle' }}>
                         <EditPersonButton person={person} />
                       </Table.Cell>
                     </Table.Row>

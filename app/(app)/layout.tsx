@@ -66,8 +66,16 @@ export default function AppLayout({
 
       {/* --- Main Content Area --- */}
       <Box style={{ flex: 1, position: 'relative' }}>
-        <Flex justify="end" align="center" p="4" style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 10 }}>
-          <UserButton />
+        <Flex justify="end" align="center" style={{ position: 'fixed', top: '0rem', right: '0rem', zIndex: 10, padding: '5px' }}>
+          <UserButton
+            appearance={{
+              elements: {
+                userButtonAvatarBox: {
+                  width: "40px",
+                  height: "40px",
+                },
+              },
+            }} />
         </Flex>
 
         {/* --- Page Content --- */}

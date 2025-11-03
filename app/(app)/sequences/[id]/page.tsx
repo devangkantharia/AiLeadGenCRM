@@ -1,5 +1,5 @@
 // Location: /app/(app)/sequences/[id]/page.tsx
-// --- THIS IS THE REAL, WORKING BUILDER ---
+// --- REWRITTEN FOR RADIX THEMES & v5 useQuery ---
 
 "use client";
 
@@ -9,13 +9,22 @@ import {
   deleteSequenceEmail,
 } from "@/lib/actions/crm.actions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@radix-ui/themes"
 import { SequenceEditor } from "@/components/crm/SequenceEditor";
+// --- 1. Import useEffect ---
 import { useState, useEffect } from "react";
-import { auth } from "@clerk/nextjs/server"; // We need this, but this is a client component...
-// We'll get the ownerId from the query data instead
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import Link from "next/link";
+import { Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
+
+type SequenceEmail = {
+  id: string;
+  day: number;
+  subject: string;
+  content: any;
+  sequenceId: string;
+  ownerId: string;
+};
 
 export default function SequenceBuilderPage({
   params,
@@ -34,17 +43,19 @@ export default function SequenceBuilderPage({
   } = useQuery({
     queryKey: ["sequence", sequenceId],
     queryFn: () => getSequenceDetails(sequenceId),
+    // --- 2. THE 'onSuccess' CALLBACK IS REMOVED ---
   });
 
-  // When data is fetched, select the first email by default
+  // --- 3. THIS IS THE v5 FIX ---
+  // We use useEffect to react to data changes
   useEffect(() => {
     if (sequenceData?.emails?.length > 0 && !selectedEmailId) {
       setSelectedEmailId(sequenceData.emails[0].id);
     }
   }, [sequenceData, selectedEmailId]);
+  // --- END FIX ---
 
-
-  // 2. Mutation for creating a NEW email
+  // 2. Mutation for creating a NEW email (no change)
   const { mutate: createNewEmail, isPending: isCreating } = useMutation({
     mutationFn: () => {
       if (!sequenceData?.sequence.ownerId) {
@@ -52,7 +63,7 @@ export default function SequenceBuilderPage({
       }
       return upsertSequenceEmail({
         sequenceId: sequenceId,
-        ownerId: sequenceData.sequence.ownerId, // Get owner from the sequence
+        ownerId: sequenceData.sequence.ownerId,
         day: (sequenceData?.emails?.length || 0) + 1,
         subject: "New Email Subject",
         content: [{ type: "paragraph", content: "Start writing..." }],
@@ -60,12 +71,12 @@ export default function SequenceBuilderPage({
     },
     onSuccess: (newEmail) => {
       queryClient.invalidateQueries({ queryKey: ["sequence", sequenceId] });
-      setSelectedEmailId(newEmail.id); // Auto-select the new email
+      setSelectedEmailId(newEmail.id);
       toast.success("New email step added!");
     },
   });
 
-  // 3. Mutation for deleting an email
+  // 3. Mutation for deleting an email (no change)
   const { mutate: deleteEmail } = useMutation({
     mutationFn: (emailId: string) => {
       if (window.confirm("Are you sure you want to delete this email?")) {
@@ -75,65 +86,68 @@ export default function SequenceBuilderPage({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sequence", sequenceId] });
-      setSelectedEmailId(null); // De-select
+      setSelectedEmailId(null);
       toast.success("Email deleted.");
     },
     onError: (err) => {
-      if (err.message !== "Delete cancelled") {
-        toast.error(`Error: ${err.message}`);
+      if ((err as Error).message !== "Delete cancelled") {
+        toast.error(`Error: ${(err as Error).message}`);
       }
     },
   });
 
-  // 4. Find the currently selected email from the fetched data
+  // 4. Find the currently selected email (no change)
   const selectedEmail = sequenceData?.emails.find(
     (e) => e.id === selectedEmailId
   );
 
   if (isLoading) return <p>Loading sequence...</p>;
-  if (error) return <p>Error: {error.message}</p>;
+  if (error) return <p>Error: {(error as Error).message}</p>;
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold">
+    <Box className="space-y-8">
+      <Text as="div" size="2" mb="4">
+        <Link href="/sequences" style={{ color: `var(--accent-11)` }} className="hover:underline">&larr; Back to all sequences</Link>
+      </Text>
+      <Heading as="h1" size="7" className="!mb-2">
         {sequenceData?.sequence.name}
-      </h1>
-      <p className="text-gray-600 mb-8">
+      </Heading>
+      <Text as="p" size="3" color="gray" className="!mt-2 !mb-8">
         Build your multi-step email sequence.
-      </p>
+      </Text>
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Column 1: Email list */}
         <div className="md:col-span-1">
-          <h2 className="text-xl font-semibold mb-4">Emails</h2>
+          <Heading as="h2" size="5" mb="4">Emails</Heading>
           <div className="space-y-2">
-            {sequenceData?.emails.map((email: any) => (
-              <div
+            {sequenceData?.emails.map((email: SequenceEmail) => (
+              <Box
                 key={email.id}
                 onClick={() => setSelectedEmailId(email.id)}
                 className={cn(
                   "p-4 border rounded-lg cursor-pointer hover:bg-gray-50",
                   selectedEmailId === email.id
-                    ? "bg-gray-100 border-blue-500"
+                    ? "bg-gray-100 border-blue-500 ring-2 ring-blue-500"
                     : "bg-white"
                 )}
               >
-                <div className="flex justify-between items-center">
-                  <h3 className="font-semibold">Day {email.day}</h3>
+                <Flex justify="between" align="center">
+                  <Heading as="h3" size="3">Day {email.day}</Heading>
                   <Button
                     variant="ghost"
-
-                    className="text-red-500 hover:text-red-700"
+                    color="red"
+                    size="1"
                     onClick={(e) => {
-                      e.stopPropagation(); // Don't trigger the select click
+                      e.stopPropagation();
                       deleteEmail(email.id);
                     }}
                   >
                     Delete
                   </Button>
-                </div>
-                <p className="text-sm text-gray-500">{email.subject}</p>
-              </div>
+                </Flex>
+                <Text as="p" size="2" color="gray" className="truncate">{email.subject}</Text>
+              </Box>
             ))}
             <Button
               variant="outline"
@@ -148,18 +162,23 @@ export default function SequenceBuilderPage({
 
         {/* Column 2: Editor */}
         <div className="md:col-span-2">
-          <h2 className="text-xl font-semibold mb-4">Editor</h2>
           {selectedEmail ? (
             <SequenceEditor email={selectedEmail as any} />
           ) : (
-            <div className="h-96 flex items-center justify-center bg-white border rounded-lg shadow-md">
-              <p className="text-gray-500">
-                Select an email to edit or add a new one.
-              </p>
-            </div>
+            <Flex
+              align="center"
+              justify="center"
+              className="h-96 bg-white border rounded-lg shadow-md"
+            >
+              <Text color="gray">
+                {sequenceData?.emails.length === 0
+                  ? "Add your first email step to begin."
+                  : "Select an email to edit."}
+              </Text>
+            </Flex>
           )}
         </div>
       </div>
-    </div>
+    </Box>
   );
 }

@@ -4,8 +4,10 @@
 import { getEmailSequences, createEmailSequence } from "@/lib/actions/crm.actions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { Box, Button, Dialog, Flex, Heading, Text, TextField, useThemeContext } from "@radix-ui/themes";
-import { useState } from "react";
+import { Box, Button, Card, Dialog, Flex, Heading, Text, TextField, useThemeContext } from "@radix-ui/themes";
+import { useState } from 'react';
+import { EditSequenceButton } from "@/components/crm/EditSequenceButton";
+import { toast } from "sonner";
 function CreateSequenceButton() {
     const [isOpen, setIsOpen] = useState(false);
     const [name, setName] = useState("");
@@ -17,32 +19,56 @@ function CreateSequenceButton() {
             queryClient.invalidateQueries({ queryKey: ["sequences"] });
             setIsOpen(false);
             setName("");
+            toast.success("New sequence created!");
         },
+        onError: (err) => {
+            toast.error(`Error: ${(err as Error).message}`);
+        }
     });
+
 
     return (
         <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
             <Dialog.Trigger>
-                <Button>New Sequence</Button>
+                <Button size="3">New Sequence</Button>
             </Dialog.Trigger>
-            <Dialog.Content className="sm:max-w-[425px]">
+
+            <Dialog.Content style={{ maxWidth: 450 }}>
                 <Dialog.Title>Create New Email Sequence</Dialog.Title>
+                <Dialog.Description size="2" mb="4">
+                    Give your new sequence a name.
+                </Dialog.Description>
+
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
                         mutate(name);
                     }}
-                    className="space-y-4"
                 >
-                    <TextField.Root
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g., 'SaaS Cold Outreach'"
-                        required
-                    />
-                    <Button type="submit" disabled={isPending}>
-                        {isPending ? "Creating..." : "Create Sequence"}
-                    </Button>
+                    <Flex direction="column" gap="3">
+                        <label>
+                            <Text as="div" size="2" mb="1" weight="bold">
+                                Name
+                            </Text>
+                            <TextField.Root
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="e.g., 'SaaS Cold Outreach'"
+                                required
+                            />
+                        </label>
+                    </Flex>
+
+                    <Flex gap="3" mt="4" justify="end">
+                        <Dialog.Close>
+                            <Button variant="soft" color="gray">
+                                Cancel
+                            </Button>
+                        </Dialog.Close>
+                        <Button type="submit" disabled={isPending}>
+                            {isPending ? "Creating..." : "Create Sequence"}
+                        </Button>
+                    </Flex>
                 </form>
             </Dialog.Content>
         </Dialog.Root>
@@ -88,14 +114,19 @@ export default function SequencesPage() {
                             href={`/sequences/${seq.id}`}
                             className="block p-0"
                         >
-                            <div className="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-transparent hover:border-blue-500 h-32 flex flex-col justify-between">
-                                <h3 className="text-xl font-semibold text-blue-600 truncate">
-                                    {seq.name}
-                                </h3>
-                                <p className="text-sm text-gray-400">
+                            <Card className="p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-transparent hover:border-blue-500 h-32 flex flex-col">
+                                <Flex justify="between" align="start" className="flex-grow pb-14">
+                                    <Heading as="h3" size="4" className="font-semibol truncate pr-2" color={currentAccentColor}>
+                                        {seq.name}
+                                    </Heading>
+                                    <Box onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                                        <EditSequenceButton sequence={seq} />
+                                    </Box>
+                                </Flex>
+                                <Text style={{ color: `var(--accent-11)` }} as="p" size="1">
                                     Created: {new Date(seq.createdAt).toLocaleDateString()}
-                                </p>
-                            </div>
+                                </Text>
+                            </Card>
                         </Link>
                     ))}
                 </div>

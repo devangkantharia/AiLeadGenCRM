@@ -11,7 +11,8 @@ import { updatePersonSchema } from "@/lib/schemas";
 // --- END FIX ---
 import { updatePerson } from "@/lib/actions/crm.actions";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button, Dialog, Flex, Text, TextField } from "@radix-ui/themes";
+import { Button, Dialog, Flex, IconButton, Text, TextField } from "@radix-ui/themes";
+import { Pencil1Icon } from "@radix-ui/react-icons";
 
 export function EditPersonButton({ person }: { person: any }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -54,7 +55,9 @@ export function EditPersonButton({ person }: { person: any }) {
   return (
     <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
       <Dialog.Trigger>
-        <Button variant="outline">Edit</Button>
+        <IconButton variant="ghost" size="4">
+          <Pencil1Icon />
+        </IconButton>
       </Dialog.Trigger>
       <Dialog.Content className="sm:max-w-[425px]">
         <Dialog.Title>Edit {person.firstName}</Dialog.Title>

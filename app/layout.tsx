@@ -8,6 +8,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Providers } from "@/lib/providers"; // Import our new Provider
 
 import "@radix-ui/themes/styles.css";
+import "./layout.addon.css";
 import { Theme, ThemePanel } from "@radix-ui/themes";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from 'sonner';

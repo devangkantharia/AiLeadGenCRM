@@ -7,9 +7,10 @@ import React, { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button, Dialog, Flex, Text, TextField } from "@radix-ui/themes";
+import { Button, Dialog, Flex, IconButton, Text, TextField } from "@radix-ui/themes";
 import { updateDealSchema } from "@/lib/schemas";
 import { updateDeal } from "@/lib/actions/crm.actions";
+import { Pencil1Icon } from "@radix-ui/react-icons";
 
 export function EditDealButton({ deal }: { deal: any }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -47,7 +48,9 @@ export function EditDealButton({ deal }: { deal: any }) {
   return (
     <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
       <Dialog.Trigger>
-        <Button variant="outline">Edit</Button>
+        <IconButton variant="ghost" size="1">
+          <Pencil1Icon />
+        </IconButton>
       </Dialog.Trigger>
       <Dialog.Content className="sm:max-w-[425px]">
         <Dialog.Title>Edit Deal</Dialog.Title>

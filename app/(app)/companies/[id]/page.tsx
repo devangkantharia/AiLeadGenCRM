@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { EditPersonButton } from "@/components/crm/EditPersonButton";
 import { EditDealButton } from "@/components/crm/EditDealButton"; // <-- New import for EditDealButton
 import { Card, Flex, Heading, Text, Box, Grid, useThemeContext } from "@radix-ui/themes";
+import Link from "next/link";
 // --- END FIX ---
 
 
@@ -106,6 +107,9 @@ export default function SingleCompanyPage({
 
   return (
     <Box className="space-y-8">
+      <Text as="div" size="2" mb="4">
+        <Link href="/companies" style={{ color: `var(--accent-11)` }} className="hover:underline">&larr; Back to all companies page</Link>
+      </Text>
       {/* --- 1. HEADER --- */}
       <Flex justify="between" align="center">
         <Box>

@@ -1,7 +1,4 @@
 /* Location: /app/globals.css */
-@import "@blocknote/core/style.css";
-/* <-- ADD THIS LINE */
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
