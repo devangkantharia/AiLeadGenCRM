@@ -10,7 +10,7 @@ import "@blocknote/mantine/style.css";
 import { type BlockNoteEditor, type PartialBlock } from "@blocknote/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { upsertSequenceEmail } from "@/lib/actions/crm.actions";
-import { Button, Text, TextField } from "@radix-ui/themes"
+import { Button, Card, Text, TextField, useThemeContext, Grid, Flex, Box } from "@radix-ui/themes"
 import { toast } from "sonner"; // We'll use this for save notifications
 
 // This is the shape of the email we expect
@@ -24,6 +24,9 @@ type SequenceEmail = {
 };
 
 export function SequenceEditor({ email }: { email: SequenceEmail }) {
+  const { accentColor: currentAccentColor, appearance } = useThemeContext();
+  const isDarkMode = appearance === 'dark';
+
   const queryClient = useQueryClient();
   const [subject, setSubject] = useState(email.subject || "");
   const [day, setDay] = useState(email.day || 1);
@@ -75,41 +78,41 @@ export function SequenceEditor({ email }: { email: SequenceEmail }) {
   }, [email, editor]);
 
   return (
-    <div className="bg-white rounded-lg shadow-md border p-6 space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="md:col-span-3 space-y-2">
-          <Text as={"label"} htmlFor="subject">Subject</Text>
+    <Card className={`rounded-lg shadow-md p-6 space-y-4  ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`} >
+      <Grid columns={{ initial: '1', md: '4' }} gap="4">
+        <Flex direction="column" gap="2" className="md:col-span-3">
+          <Text as="label" htmlFor="subject">Subject</Text>
           <TextField.Root
             id="subject"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Your email subject"
           />
-        </div>
-        <div className="md:col-span-1 space-y-2">
-          <Text as={"label"} htmlFor="day">Day</Text>
+        </Flex>
+        <Flex direction="column" gap="2" className="md:col-span-1">
+          <Text as="label" htmlFor="day">Day</Text>
           <TextField.Root
             id="day"
             type="number"
             value={day}
             onChange={(e) => setDay(parseInt(e.target.value) || 1)}
           />
-        </div>
-      </div>
+        </Flex>
+      </Grid>
 
-      <div className="mb-4">
-        <Text as={"label"} className="block text-sm font-medium text-gray-700 mb-2">Content</Text>
+      <Box mb="4">
+        <Text as="label" className="block text-sm mb-2">Content</Text>
         {/* This is the real Blocknote editor */}
-        <div className="border rounded-md p-2">
-          <BlockNoteView editor={editor} theme="light" />
-        </div>
-      </div>
+        <Box className={`min-h-96 border rounded-lg ${isDarkMode ? 'border-gray-700 bg-[#1f1f1f]' : 'border-gray-200 bg-[#ffffff]'}`}>
+          <BlockNoteView editor={editor} theme={isDarkMode ? "dark" : "light"} className={`min-h-96 border rounded-lg ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`} />
+        </Box>
+      </Box>
 
-      <div className="flex justify-end">
+      <Flex justify="end">
         <Button onClick={() => saveEmail()} disabled={isSaving}>
           {isSaving ? "Saving..." : "Save Email Template"}
         </Button>
-      </div>
-    </div>
+      </Flex>
+    </Card>
   );
 }

@@ -16,7 +16,7 @@ import { useState, useEffect, useContext } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import Link from "next/link";
-import { Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Button, Card, Flex, Heading, Text, useThemeContext } from "@radix-ui/themes";
 
 type SequenceEmail = {
   id: string;
@@ -32,6 +32,9 @@ export default function SequenceBuilderPage({
 }: {
   params: { id: string };
 }) {
+  const { accentColor: currentAccentColor, appearance } = useThemeContext();
+  const isDarkMode = appearance === 'dark';
+
   const sequenceId = params.id;
   const queryClient = useQueryClient();
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
@@ -116,9 +119,11 @@ export default function SequenceBuilderPage({
       <Text as="div" size="2" mb="4">
         <Link href="/sequences" style={{ color: `var(--accent-11)` }} className="hover:underline">&larr; Back to all sequences</Link>
       </Text>
-      <Heading as="h1" size="7" className="!mb-2">
-        {sequenceData?.sequence.name}
-      </Heading>
+      <Box>
+        <Heading color={currentAccentColor} size="7">
+          {sequenceData?.sequence.name}
+        </Heading>
+      </Box>
       <Text as="p" size="3" color="gray" className="!mt-2 !mb-8">
         Build your multi-step email sequence.
       </Text>
@@ -129,14 +134,15 @@ export default function SequenceBuilderPage({
           <Heading as="h2" size="5" mb="4">Emails</Heading>
           <div className="space-y-2">
             {sequenceData?.emails.map((email: SequenceEmail) => (
-              <Box
+              <Card
                 key={email.id}
                 onClick={() => setSelectedEmailId(email.id)}
                 className={cn(
-                  "p-4 border rounded-lg cursor-pointer hover:bg-gray-50",
+                  "border hover:cursor-pointer hover:border-blue-500 ring-blue-500",
+                  isDarkMode ? 'border-gray-700' : 'border-gray-300',
                   selectedEmailId === email.id
-                    ? "bg-gray-100 border-blue-500 ring-2 ring-blue-500"
-                    : "bg-white"
+                    ? "border-blue-500 ring-1 ring-blue-500"
+                    : "transparent"
                 )}
               >
                 <Flex justify="between" align="center">
@@ -154,7 +160,7 @@ export default function SequenceBuilderPage({
                   </Button>
                 </Flex>
                 <Text as="p" size="2" color="gray" className="truncate">{email.subject}</Text>
-              </Box>
+              </Card>
             ))}
             <Button
               variant="outline"
@@ -175,7 +181,7 @@ export default function SequenceBuilderPage({
             <Flex
               align="center"
               justify="center"
-              className="h-96 bg-white border rounded-lg shadow-md"
+              className="h-96 border rounded-lg shadow-md"
             >
               <Text color="gray">
                 {sequenceData?.emails.length === 0

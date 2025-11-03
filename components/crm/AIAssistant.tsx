@@ -110,7 +110,7 @@ export function AIAssistant() {
 
   return (
     <Flex direction="column" style={{ height: '400px' }}>
-      <Box p="4">
+      <Box p="4" mb="2" style={{ borderBottom: `1px solid var(--gray-a5)` }}>
         <Heading color={currentAccentColor} as="h2" size="4">AI Sales Assistant</Heading>
       </Box>
 

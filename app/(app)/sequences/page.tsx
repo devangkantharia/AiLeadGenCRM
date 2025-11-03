@@ -114,7 +114,7 @@ export default function SequencesPage() {
                             href={`/sequences/${seq.id}`}
                             className="block p-0"
                         >
-                            <Card className="p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-transparent hover:border-blue-500 h-32 flex flex-col">
+                            <Card className="shadow-lg hover:shadow-lg transition-shadow hover:ring-2 hover:ring-blue-500">
                                 <Flex justify="between" align="start" className="flex-grow pb-14">
                                     <Heading as="h3" size="4" className="font-semibol truncate pr-2" color={currentAccentColor}>
                                         {seq.name}

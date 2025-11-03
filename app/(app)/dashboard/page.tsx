@@ -70,7 +70,7 @@ function Dashboard({ allDeals, allCompanies }: { allDeals: any[], allCompanies: 
           <AIAssistant />
         </Card>
         <Card>
-          <Box p="4">
+          <Box p="4" mb="2" style={{ borderBottom: `1px solid var(--gray-a5)` }}>
             <Flex justify="between" align="center">
               <Heading color={currentAccentColor} as="h2" size="4">AI Lead Generation</Heading>
               <RefreshLeadsButton />
@@ -96,7 +96,7 @@ function Dashboard({ allDeals, allCompanies }: { allDeals: any[], allCompanies: 
           )}
         </Card>
         <Card>
-          <Box p="4">
+          <Box p="4" mb="2" style={{ borderBottom: `1px solid var(--gray-a5)` }}>
             <Heading color={currentAccentColor} as="h2" size="4">Deals by Stage</Heading>
           </Box>
           {(allDeals?.length || 0) > 0 ? (
@@ -106,7 +106,7 @@ function Dashboard({ allDeals, allCompanies }: { allDeals: any[], allCompanies: 
           )}
         </Card>
         <Card>
-          <Box p="4">
+          <Box p="4" mb="2" style={{ borderBottom: `1px solid var(--gray-a5)` }}>
             <Heading color={currentAccentColor} as="h2" size="4">Pipeline Value by Stage</Heading>
           </Box>
           {(allDeals?.length || 0) > 0 ? (

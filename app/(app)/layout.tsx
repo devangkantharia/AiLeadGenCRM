@@ -44,9 +44,11 @@ export default function AppLayout({
   return (
     <BreadcrumbContext.Provider value={{ childName, setChildName }}>
       <Flex style={{ minHeight: "100vh" }}>
-        {/* --- Sidebar --- */}
-        <Box style={{ width: 256, minHeight: "100vh", padding: 16, borderRight: '1px solid ' }}>
-          <aside>
+        <Box
+          p="1"
+          style={{ width: 256, flexShrink: 0, position: 'fixed', height: '100vh' }}
+        >
+          <Card style={{ height: "100%" }}>
             <Heading color={currentAccentColor} size="6" mb="6">AI Lead-Gen</Heading>
             <nav>
               <Flex direction="column" gap="2" style={{ listStyle: 'none', padding: 0 }}>
@@ -87,42 +89,36 @@ export default function AppLayout({
                 })}
               </Flex>
             </nav>
-          </aside>
+          </Card>
         </Box>
 
-        {/* --- Main Content Area --- */}
-        <Box style={{ flex: 1, position: 'relative' }}>
-          <Flex justify="end" align="center" style={{ position: 'fixed', top: '0rem', right: '0rem', zIndex: 10, padding: '5px' }}>
-            <UserButton
-              appearance={{
-                elements: {
-                  userButtonAvatarBox: {
-                    width: "40px",
-                    height: "40px",
+        <Box style={{ flex: 1, marginLeft: 256, position: 'relative', display: 'flex', flexDirection: 'column', height: '100vh' }}>
+          <Box style={{ flexShrink: 0, position: 'fixed', top: 0, right: 10, zIndex: 10 }}>
+            <Flex justify="end" align="center" p="2">
+              <UserButton
+                appearance={{
+                  elements: {
+                    userButtonAvatarBox: {
+                      width: "40px",
+                      height: "40px",
+                    },
                   },
-                },
-              }} />
-          </Flex>
-
-          {/* --- Page Content --- */}
-          <Box p="8" style={{ height: '100vh', overflowY: 'auto' }}>
-            {children}
-            <Flex
-              align="center"
-              justify="center"
-              overflow="hidden"
-              position="absolute"
-              style={{ zIndex: -1 }}
-              inset="0"
-            >
-              <ThemesPanelBackgroundImage
-                id="1"
-                width="2000px"
-                height="2000px"
+                }}
               />
             </Flex>
           </Box>
+          <Box p="8" style={{ flexGrow: 1, position: 'relative' }}>
+            {children}
+          </Box>
         </Box>
+      </Flex>
+      <Flex
+        align="center"
+        justify="center"
+        overflow="hidden"
+        style={{ position: 'absolute', zIndex: -1, inset: '0' }}
+      >
+        <ThemesPanelBackgroundImage id="1" width="2000px" height="2000px" />
       </Flex>
     </BreadcrumbContext.Provider>
   );
