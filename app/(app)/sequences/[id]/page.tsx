@@ -10,8 +10,9 @@ import {
 } from "@/lib/actions/crm.actions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SequenceEditor } from "@/components/crm/SequenceEditor";
+import { useBreadcrumb } from "@/components/crm/BreadcrumbContext";
 // --- 1. Import useEffect ---
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -34,6 +35,7 @@ export default function SequenceBuilderPage({
   const sequenceId = params.id;
   const queryClient = useQueryClient();
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+  const breadcrumb = useBreadcrumb();
 
   // 1. Fetch the sequence folder and all its emails
   const {
@@ -51,6 +53,11 @@ export default function SequenceBuilderPage({
   useEffect(() => {
     if (sequenceData?.emails?.length > 0 && !selectedEmailId) {
       setSelectedEmailId(sequenceData.emails[0].id);
+    }
+
+    // Set the breadcrumb name when the sequence data is loaded
+    if (sequenceData?.sequence) {
+      breadcrumb?.setChildName(sequenceData.sequence.name);
     }
   }, [sequenceData, selectedEmailId]);
   // --- END FIX ---

@@ -7,6 +7,7 @@
 import { getCompanyDetails } from "@/lib/actions/crm.actions";
 import { useQuery } from "@tanstack/react-query";
 import { CreateDealButton } from "@/components/crm/CreateDealButton";
+import { useBreadcrumb } from "@/components/crm/BreadcrumbContext";
 import { CreatePersonButton } from "@/components/crm/CreatePersonButton";
 import { ActivityForm } from "@/components/crm/ActivityForm"; // <-- This was the broken import
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ import { EditPersonButton } from "@/components/crm/EditPersonButton";
 import { EditDealButton } from "@/components/crm/EditDealButton"; // <-- New import for EditDealButton
 import { Card, Flex, Heading, Text, Box, Grid, useThemeContext } from "@radix-ui/themes";
 import Link from "next/link";
+import { useEffect } from "react";
 // --- END FIX ---
 
 
@@ -75,6 +77,7 @@ export default function SingleCompanyPage({
 }) {
   // --- FIX: Move hook call to the top level ---
   const { accentColor: currentAccentColor, appearance } = useThemeContext();
+  const breadcrumb = useBreadcrumb();
 
   const companyId = params.id;
 
@@ -86,6 +89,13 @@ export default function SingleCompanyPage({
     queryKey: ["company", companyId],
     queryFn: () => getCompanyDetails(companyId),
   });
+
+  // Set the breadcrumb name when the company data is loaded
+  useEffect(() => {
+    if (company) {
+      breadcrumb?.setChildName(company.name);
+    }
+  }, [company, breadcrumb]);
 
   if (isLoading) {
     return <p>Loading company details...</p>;
