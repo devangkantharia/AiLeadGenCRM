@@ -47,15 +47,16 @@ export function DealsByStageChart({
 
   return (
     <Flex align="start" gap="4">
-      <Box width="66.66%">
+      <Box width="66.66%" height="300px">
         <ResponsiveContainer width="100%" height={300}>
           <PieChart>
             <Pie
+              isAnimationActive={false}
               data={data}
               cx="50%"
               cy="50%"
               outerRadius={100}
-              fill="#8884d8"
+              fill="#000"
               dataKey="count"
               nameKey="name"
               labelLine={false}
@@ -74,10 +75,12 @@ export function DealsByStageChart({
       <Box width="33.33%">
         {hoveredStage && dealsForHoveredStage.length > 0 && (
           <Box>
-            <Heading as="h3" size="3" mb="2">{hoveredStage} Deals</Heading>
+            <Heading as="h3" size="3" mb="2" style={{ color: COLORS[data.findIndex(d => d.name === hoveredStage) % COLORS.length] }}>
+              {hoveredStage} Deals
+            </Heading>
             <ol style={{ listStyle: 'decimal', paddingLeft: '20px' }}>
               {dealsForHoveredStage.map((deal) => (
-                <li key={deal.id}><Text size="2" >{deal.name} ({deal.company?.name || "No Company"})</Text></li>
+                <li style={{ color: COLORS[data.findIndex(d => d.name === hoveredStage) % COLORS.length] }} key={deal.id}><Text size="2" >{deal.name} ({deal.company?.name || "No Company"})</Text></li>
               ))}
             </ol>
           </Box>

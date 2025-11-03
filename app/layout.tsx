@@ -9,7 +9,7 @@ import { Providers } from "@/lib/providers"; // Import our new Provider
 
 import "@radix-ui/themes/styles.css";
 import "./layout.addon.css";
-import { Theme, ThemePanel } from "@radix-ui/themes";
+import { Theme } from "@radix-ui/themes";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from 'sonner';
 
@@ -38,8 +38,6 @@ export default function RootLayout({
                             {/* Wrap the children in our Query Provider */}
                             <Providers>{children}</Providers>
                             <Toaster />
-                            <ThemePanel defaultOpen={false} />
-
                         </Theme>
                     </ThemeProvider>
                 </body>

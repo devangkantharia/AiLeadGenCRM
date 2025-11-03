@@ -4,6 +4,7 @@
 
 "use client";
 
+import { useThemeContext } from "@radix-ui/themes";
 import {
   BarChart,
   Bar,
@@ -15,6 +16,8 @@ import {
   Legend,
 } from "recharts";
 
+
+
 // Helper to format the Y-axis and Tooltip
 const formatCurrency = (value: number) => {
   if (value === 0) return "$0";
@@ -24,6 +27,8 @@ const formatCurrency = (value: number) => {
 
 // Data we expect: [{ name: 'Discovery', value: 50000 }, { name: 'Proposal', value: 250000 }, ...]
 export function ValueByStageChart({ data }: { data: { name: string, value: number }[] }) {
+  const { accentColor: currentAccentColor, appearance } = useThemeContext();
+  const isDarkMode = appearance === 'dark';
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart
@@ -48,7 +53,7 @@ export function ValueByStageChart({ data }: { data: { name: string, value: numbe
           }
         />
         <Legend />
-        <Bar dataKey="value" fill="#8884d8" />
+        <Bar dataKey="value" fill={`var(--${currentAccentColor}-10)`} />
       </BarChart>
     </ResponsiveContainer>
   );

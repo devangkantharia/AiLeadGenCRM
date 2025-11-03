@@ -2,8 +2,7 @@
 // --- VALIDATORADAPTER LINE REMOVED ---
 
 "use client";
-
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useForm } from "@tanstack/react-form";
 // --- REMOVED 'zodValidator' ---
 import { eventFormSchema } from "@/lib/schemas";
@@ -49,16 +48,18 @@ export function ActivityForm({ companyId }: { companyId: string }) {
   });
 
   const form = useForm({
-    defaultValues: {
+    // By using useMemo, the defaultValues will be re-evaluated when activeTab changes.
+    // This ensures form.reset() uses the correct default 'type' for the current tab.
+    defaultValues: useMemo(() => ({
       companyId: companyId,
       personId: undefined,
       dealId: undefined,
-      type: "Note" as ActivityType,
+      type: activeTab,
       date: new Date().toISOString().split("T")[0],
       content: "",
-      isTask: false,
+      isTask: activeTab === "Task",
       isDone: false,
-    },
+    }), [activeTab, companyId]),
     onSubmit: async ({ value }) => {
       mutate(value); // <-- This will now work
     },
