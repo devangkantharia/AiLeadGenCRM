@@ -59,14 +59,24 @@ export async function getCompanies() {
   const userId = await getUserId(clerkId);
   const { data, error } = await supabaseAdmin
     .from("Company")
-    .select("*")
+    .select("*, Deal(*)")
     .eq("ownerId", userId)
     .order("createdAt", { ascending: false });
+
   if (error) {
     console.error("Error fetching companies:", error);
     throw new Error("Failed to fetch companies");
   }
-  return data;
+  if (!data) {
+    return [];
+  }
+  // Rename 'Deal' to 'deals' to match frontend expectations
+  const companiesWithDeals = data.map((company: any) => ({
+    ...company,
+    deals: company.Deal || [],
+  }));
+
+  return companiesWithDeals;
 }
 
 export async function getDeals() {
