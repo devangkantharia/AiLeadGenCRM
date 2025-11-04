@@ -55,7 +55,7 @@ export function EditDealButton({ deal }: { deal: any }) {
       <Dialog.Content className="sm:max-w-[425px]">
         <Dialog.Title>Edit Deal</Dialog.Title>
         <Dialog.Description className="text-gray-600 text-sm mt-2 mb-4">
-          Make changes to your deal here. Click save when you're done.
+          Make changes to your deal here. Click save when you&apos;re done.
         </Dialog.Description>
         <form
           onSubmit={(e) => {

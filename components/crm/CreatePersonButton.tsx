@@ -61,7 +61,7 @@ export function CreatePersonButton({ companyId }: { companyId?: string }) {
       <Dialog.Content className="sm:max-w-[425px]">
         <Dialog.Title>Create New Person</Dialog.Title>
         <Dialog.Description className="text-gray-600 text-sm mt-2 mb-4">
-          Enter the details for the new person. Click save when you're done.
+          Enter the details for the new person. Click save when you&apos;re done.
         </Dialog.Description>
 
         <form

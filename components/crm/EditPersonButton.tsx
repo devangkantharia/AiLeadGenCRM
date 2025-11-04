@@ -62,7 +62,7 @@ export function EditPersonButton({ person }: { person: any }) {
       <Dialog.Content className="sm:max-w-[425px]">
         <Dialog.Title>Edit {person.firstName}</Dialog.Title>
         <Dialog.Description className="text-gray-600 text-sm mt-2 mb-4">
-          Make changes to this person's details here. Click save when you're done.
+          Make changes to this person&apos;s details here. Click save when you&apos;re done.
         </Dialog.Description>
 
         <form
