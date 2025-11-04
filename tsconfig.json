@@ -25,13 +25,25 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    // --- THIS IS THE FIX ---
+    "types": [
+      "jest",
+      "node"
+    ]
+    // --- END FIX ---
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    // --- ADD THESE ---
+    "jest.config.mjs",
+    "jest.setup.ts",
+    "__tests__/**/*.ts",
+    "__tests__/**/*.tsx"
+    // --- END ADD ---
   ],
   "exclude": [
     "node_modules"
