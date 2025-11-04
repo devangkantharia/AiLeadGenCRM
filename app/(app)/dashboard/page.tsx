@@ -72,7 +72,7 @@ function Dashboard({ allDeals, allCompanies }: { allDeals: any[], allCompanies: 
         <Card>
           <Box p="4" mb="2" style={{ borderBottom: `1px solid var(--gray-a5)` }}>
             <Flex justify="between" align="center">
-              <Heading color={currentAccentColor} as="h2" size="4">AI Lead Generation</Heading>
+              <Heading color={currentAccentColor} as="h2" size="4">AI Generated Leads</Heading>
               <RefreshLeadsButton />
             </Flex>
           </Box>
@@ -97,7 +97,7 @@ function Dashboard({ allDeals, allCompanies }: { allDeals: any[], allCompanies: 
         </Card>
         <Card>
           <Box p="4" mb="2" style={{ borderBottom: `1px solid var(--gray-a5)` }}>
-            <Heading color={currentAccentColor} as="h2" size="4">Deals by Stage</Heading>
+            <Heading color={currentAccentColor} as="h2" size="4">On-Going Deals</Heading>
           </Box>
           {(allDeals?.length || 0) > 0 ? (
             <DealsByStageChart data={dealsByStage} allDeals={allDeals || []} />
@@ -107,7 +107,7 @@ function Dashboard({ allDeals, allCompanies }: { allDeals: any[], allCompanies: 
         </Card>
         <Card>
           <Box p="4" mb="2" style={{ borderBottom: `1px solid var(--gray-a5)` }}>
-            <Heading color={currentAccentColor} as="h2" size="4">Pipeline Value by Stage</Heading>
+            <Heading color={currentAccentColor} as="h2" size="4">Current Pipeline Value</Heading>
           </Box>
           {(allDeals?.length || 0) > 0 ? (
             <ValueByStageChart data={valueByStage} />

@@ -61,9 +61,6 @@ export function CreateCompanyButton() {
         >
           <form.Field
             name="name"
-            validators={{
-              onChange: companyFormSchema.shape.name,
-            }}
             children={(field) => (
               <div className="space-y-2">
                 <Text as="label" htmlFor={field.name}>Company Name</Text>

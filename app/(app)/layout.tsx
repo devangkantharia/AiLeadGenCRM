@@ -46,7 +46,7 @@ export default function AppLayout({
     { href: "/companies", label: "Companies" },
     { href: "/people", label: "People" },
     { href: "/deals", label: "Deals" },
-    { href: "/sequences", label: "Sequences" },
+    { href: "/sequences", label: "Email Sequences" },
   ];
   const { accentColor: currentAccentColor, appearance } = useThemeContext();
   const isDarkMode = appearance === 'dark';
