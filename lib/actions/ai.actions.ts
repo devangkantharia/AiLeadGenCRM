@@ -1,5 +1,5 @@
 // Location: /lib/actions/ai.actions.ts
-// --- THIS IS THE FINAL, COMPLETE, AND CORRECTED FILE ---
+// --- IMPROVED VERSION WITH ACCURATE CONTACT AND WEBSITE EXTRACTION ---
 
 "use server";
 
@@ -8,15 +8,12 @@ import OpenAI from "openai";
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import Exa from "exa-js";
-// --- 1. IMPORT REAL LANGFUSE ---
 import { Langfuse } from "langfuse";
 
-// --- 2. INITIALIZE ALL CLIENTS ---
+// --- INITIALIZE ALL CLIENTS ---
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
-
-const exa = new Exa(process.env.EXA_API_KEY!);
 
 const langfuse = new Langfuse({
   secretKey: process.env.LANGFUSE_SECRET_KEY!,
@@ -24,10 +21,8 @@ const langfuse = new Langfuse({
   baseUrl: process.env.LANGFUSE_HOST!,
 });
 
-
 // Helper function to get our internal user ID
 async function getUserId(clerkId: string) {
-  // --- FIX 1: Removed stray 'D' ---
   const { data, error } = await supabaseAdmin
     .from("User")
     .select("id")
@@ -38,24 +33,23 @@ async function getUserId(clerkId: string) {
   return data.id;
 }
 
-// --- 3. REAL EXA WEB_SEARCH HANDLER ---
-// (This is your complex handler, but with the Exa API call fixed)
-async function webSearchHandler(params: { query: string }) {
+// --- IMPROVED EXA WEB_SEARCH HANDLER WITH CONTACT SEARCH ---
+async function webSearchHandler(params: { query: string; searchType?: 'company' | 'contacts' }) {
   const apiKey = process.env.EXA_API_KEY;
   if (!apiKey) throw new Error("EXA_API_KEY not configured");
 
   const exa = new Exa(apiKey);
-  console.log(`[AI] Calling Exa with query: ${params.query}`);
+  const searchType = params.searchType || 'company';
+  console.log(`[AI] Calling Exa with query: ${params.query} (type: ${searchType})`);
 
   let allResults: any[] = [];
   try {
-    // Use searchAndContents to perform search and get contents in one call for efficiency.
     const searchResponse = await exa.searchAndContents(params.query, {
-      numResults: 5, // Fetch 5 results to get a good selection.
+      numResults: searchType === 'contacts' ? 5 : 10,
       useAutoprompt: true,
       text: {
         includeHtmlTags: false,
-        maxCharacters: 2000 // Limit characters to keep payload reasonable.
+        maxCharacters: searchType === 'contacts' ? 5000 : 3000
       }
     });
     allResults = searchResponse.results;
@@ -65,75 +59,371 @@ async function webSearchHandler(params: { query: string }) {
   }
 
   const uniqueResults = Array.from(new Map(allResults.map(r => [r.url || r.link || r.uri, r])).values());
-  // Limit results to the top N to avoid token bloat
-  const limitedResults = uniqueResults.slice(0, 6);
 
-  // (Your excellent data extraction logic)
-  const enriched = limitedResults.map((r: any, index) => {
-    // --- FIX 2: Use 'r.text' for the fullText, not snippet/summary ---
-    const fullText = `${r.title || ""} ${r.text || ""} ${r.summary || ""}`;
+  // Helper: Extract clean domain from URL
+  const extractDomain = (url: string): string => {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname.replace(/^www\./, "").replace(/^app\./, "").replace(/^blog\./, "");
+    } catch {
+      return "";
+    }
+  };
 
-    const extract = (pattern: RegExp, text: string, group = 1): string => {
-      const match = text.match(pattern);
-      return match ? match[group] : "";
-    };
-    const extractEmails = (text: string): string[] => {
-      return Array.from(text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || []);
-    };
-    const extractContacts = (text: string): any[] => {
-      const contactPattern = /([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)(?:\s+(?:is|as|,|->|−)\s+([A-Z][a-zA-Z\s]+))?/g;
-      const contacts: any[] = [];
-      let match;
-      while ((match = contactPattern.exec(text)) !== null) {
-        const name = match[1];
-        const role = match[2] || "";
-        if (name && name.split(" ").length >= 2) {
-          contacts.push({
-            name,
-            role: role.trim(),
-            email: extractEmails(text).find(e => e.toLowerCase().includes(name.split(" ")[0].toLowerCase())) || "",
-            social: { /*...your logic...*/ }
-          });
+  // Helper: Extract company website (prefer official domain, skip aggregators)
+  const extractCompanyWebsite = (url: string, text: string): string => {
+    const domain = extractDomain(url);
+
+    // Skip aggregator/directory/social sites
+    const skipDomains = ['linkedin.com', 'crunchbase.com', 'twitter.com', 'x.com', 'facebook.com',
+      'tracxn.com', 'techcrunch.com', 'forbes.com', 'bloomberg.com', 'clutch.co',
+      'g2.com', 'capterra.com', 'wikipedia.org', 'reddit.com', 'medium.com',
+      'angellist.com', 'producthunt.com'];
+
+    if (skipDomains.some(skip => domain.includes(skip))) {
+      // Try to extract actual website from content with multiple patterns
+      const patterns = [
+        // Direct website mentions
+        /(?:website|site|visit us|homepage|web)[\s:]+(?:https?:\/\/)?((?:www\.)?[a-z0-9\-]+\.[a-z0-9\-\.]+)/i,
+        // www. patterns
+        /\b(?:www\.)([a-z0-9\-]+\.[a-z0-9\-\.]+)/i,
+        // Direct URLs in text
+        /https?:\/\/((?:www\.)?[a-z0-9\-]+\.(?:com|io|ai|co\.uk|co|uk|eu|org|net))/i,
+        // Domain patterns (more specific)
+        /\b([a-z0-9\-]+\.(?:com|io|ai|co\.uk|co|uk))(?:\s|\/|$)/i,
+        // Company name + .com pattern
+        /([a-z0-9\-]+)\.(?:com|io|ai|co\.uk)\b/i
+      ];
+
+      for (const pattern of patterns) {
+        const matches = text.matchAll(new RegExp(pattern.source, pattern.flags + 'g'));
+        for (const match of matches) {
+          let extractedDomain = match[1]?.toLowerCase() || match[0]?.toLowerCase();
+          if (!extractedDomain) continue;
+
+          // Clean up
+          extractedDomain = extractedDomain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+
+          // Validate it's not an email or the same aggregator domain
+          if (extractedDomain.includes('@')) continue;
+          if (skipDomains.some(skip => extractedDomain.includes(skip))) continue;
+
+          // Additional validation - must have valid TLD
+          if (!/\.(com|io|ai|co|uk|eu|org|net)$/i.test(extractedDomain)) continue;
+
+          return extractedDomain.startsWith('http') ? extractedDomain : `https://${extractedDomain}`;
         }
       }
-      return contacts;
-    };
+      return ""; // No valid website found in aggregator content
+    }
 
-    // --- FIX 3: 'result' was undefined. Return the object directly ---
+    // Return the source URL as the company website
+    return url;
+  };
+
+  // Helper: Extract emails with strict validation
+  const extractEmails = (text: string): string[] => {
+    const emails = Array.from(
+      text.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || []
+    );
+    // Filter out generic/system emails
+    return emails.filter(e =>
+      !e.match(/@(example|test|noreply|no-reply|admin|support|info|hello|contact|sales|marketing|press|media|team|help)\./) &&
+      !e.match(/^(info|hello|contact|support|admin|sales|no-reply|noreply)@/) &&
+      e.length < 60
+    ).slice(0, 10); // Limit to 10 emails max
+  };
+
+  // Helper: Extract phone numbers (international formats)
+  const extractPhones = (text: string): string[] => {
+    const patterns = [
+      /\+?\d{1,4}[\s\-]?\(?\d{2,4}\)?[\s\-]?\d{3,4}[\s\-]?\d{3,4}/g,
+      /\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4}/g,
+    ];
+    const phones: string[] = [];
+    for (const pattern of patterns) {
+      const matches = Array.from(text.match(pattern) || []);
+      phones.push(...matches);
+    }
+    // Dedupe and limit
+    return Array.from(new Set(phones)).slice(0, 3);
+  };
+
+  // Helper: Extract leadership contacts with ENHANCED validation for LinkedIn and leadership pages
+  const extractContacts = (text: string, emails: string[], searchType: string = 'company') => {
+    const contacts: Array<{ name: string; title: string; email: string }> = [];
+
+    // Leadership keywords (expanded list)
+    const leadershipKeywords = [
+      'ceo', 'chief executive', 'founder', 'co-founder', 'cofounder',
+      'cto', 'chief technology', 'chief technical',
+      'cfo', 'chief financial',
+      'coo', 'chief operating',
+      'cmo', 'chief marketing',
+      'cpo', 'chief product',
+      'ciso', 'chief information security',
+      'president', 'managing director',
+      'vp', 'vice president', 'v.p.',
+      'head of', 'director of', 'general manager',
+      'evp', 'executive vice president',
+      'svp', 'senior vice president'
+    ];
+
+    // For contact searches, be more aggressive with patterns
+    if (searchType === 'contacts') {
+      // LinkedIn profile patterns: "John Smith" followed by title
+      const linkedInPatterns = [
+        // Pattern: Name\nTitle at Company
+        /\b([A-Z][a-z]{2,15}(?:\s[A-Z][a-z]{2,15}){1,2})\s*\n\s*([A-Z][A-Za-z\s&\/\-]{3,80}?)\s+(?:at|@)\s+/gi,
+        // Pattern: Name | Title
+        /\b([A-Z][a-z]{2,15}(?:\s[A-Z][a-z]{2,15}){1,2})\s*\|\s*([A-Z][A-Za-z\s&\/\-]{3,60})\b/g,
+        // Pattern: Name - Title
+        /\b([A-Z][a-z]{2,15}(?:\s[A-Z][a-z]{2,15}){1,2})\s*[-–]\s*([A-Z][A-Za-z\s&\/\-]{3,60})\b/g,
+      ];
+
+      for (const pattern of linkedInPatterns) {
+        let match: RegExpExecArray | null;
+        while ((match = pattern.exec(text)) !== null && contacts.length < 10) {
+          const name = match[1].trim();
+          const title = match[2].trim();
+
+          const titleLower = title.toLowerCase();
+          const hasLeadershipKeyword = leadershipKeywords.some(kw => titleLower.includes(kw));
+
+          if (hasLeadershipKeyword) {
+            const nameParts = name.split(/\s+/);
+            if (nameParts.length >= 2 && nameParts.length <= 3) {
+              // Try to match email
+              const nameTokens = name.toLowerCase().split(/\s+/);
+              const matchedEmail = emails.find(email => {
+                const localPart = email.split('@')[0].toLowerCase().replace(/[._]/g, '');
+                return nameTokens.some(token =>
+                  localPart.includes(token) ||
+                  (nameTokens.length === 2 && localPart.includes(nameTokens[0][0] + nameTokens[1]))
+                );
+              });
+
+              contacts.push({
+                name,
+                title: title.replace(/[,;.]$/, '').substring(0, 60),
+                email: matchedEmail || ""
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Original patterns (for both search types)
+    const patterns = [
+      // Pattern 1: John Smith, CEO | John Smith - CEO
+      /\b([A-Z][a-z]{2,15}(?:\s[A-Z][a-z]{2,15}){1,2})\s*[,\-–]\s*([A-Z][A-Za-z\s&\/\-]{3,60})\b/g,
+      // Pattern 2: CEO: John Smith | CEO - John Smith  
+      /\b([A-Z][A-Za-z\s&\/\-]{3,40})\s*[:–-]\s*([A-Z][a-z]{2,15}(?:\s[A-Z][a-z]{2,15}){1,2})\b/g,
+    ];
+
+    for (let patternIndex = 0; patternIndex < patterns.length; patternIndex++) {
+      const pattern = patterns[patternIndex];
+      let match: RegExpExecArray | null;
+
+      while ((match = pattern.exec(text)) !== null && contacts.length < 10) {
+        let name = "";
+        let title = "";
+
+        if (patternIndex === 0) {
+          name = match[1].trim();
+          title = match[2].trim();
+        } else {
+          title = match[1].trim();
+          name = match[2].trim();
+        }
+
+        // Strict validation: title must contain a leadership keyword
+        const titleLower = title.toLowerCase();
+        const hasLeadershipKeyword = leadershipKeywords.some(kw => titleLower.includes(kw));
+        if (!hasLeadershipKeyword) continue;
+
+        // Strict validation: name must be 2-3 proper words
+        const nameParts = name.split(/\s+/);
+        if (nameParts.length < 2 || nameParts.length > 3) continue;
+
+        // Each part must start with capital letter
+        const isProperName = nameParts.every(part =>
+          part.length >= 2 && /^[A-Z][a-z]/.test(part) && !/\d/.test(part)
+        );
+        if (!isProperName) continue;
+
+        // Reject common false positives
+        const rejectPatterns = ['Ltd', 'Limited', 'Inc', 'Corp', 'Company', 'Group', 'Partners'];
+        if (rejectPatterns.some(reject => name.includes(reject))) continue;
+
+        // Try to find a matching email
+        const nameTokens = name.toLowerCase().split(/\s+/);
+        const matchedEmail = emails.find(email => {
+          const localPart = email.split('@')[0].toLowerCase().replace(/[._]/g, '');
+          return nameTokens.some(token =>
+            localPart.includes(token) ||
+            token.includes(localPart) ||
+            // Check initials: John Smith -> jsmith, j.smith
+            (nameTokens.length === 2 && localPart.includes(nameTokens[0][0] + nameTokens[1]))
+          );
+        });
+
+        // Clean up title (remove trailing punctuation, limit length)
+        title = title.replace(/[,;.]$/, '').trim();
+        if (title.length > 50) title = title.substring(0, 50);
+
+        contacts.push({
+          name,
+          title,
+          email: matchedEmail || ""
+        });
+      }
+    }
+
+    // Deduplicate by name (case-insensitive)
+    const seen = new Set<string>();
+    return contacts.filter(c => {
+      const key = c.name.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 10); // Max 10 contacts for contact searches, 5 for company searches
+  };
+
+  // Process results
+  const enriched = uniqueResults.slice(0, 8).map((r: any) => {
+    const fullText = `${r.title || ""} ${r.text || ""}`;
+    const url = r.url || r.link || r.uri || "";
+
+    // Extract company name from title (improved for list pages)
+    let companyName = "";
+    if (r.title) {
+      // Remove list prefixes like "10 Best", "Top 20", etc.
+      let cleanTitle = r.title.replace(/^(?:Top|Best|Leading|\d+)\s+(?:B2B|SaaS|Tech|UK|London)?\s*/i, '').trim();
+      // Split on common delimiters and take first part
+      companyName = cleanTitle.split(/[-|:•]/)[0].trim();
+      // Remove common suffixes and list indicators
+      companyName = companyName.replace(/\s+(Ltd|Limited|Inc|Corp|Corporation|Group|Company|GmbH|AG|SA|BV|PLC)\.?$/i, '').trim();
+      companyName = companyName.replace(/\s+(?:List|Directory|Guide|Review|Companies|Startups)$/i, '').trim();
+    }
+
+    // If title is a list/directory, try to extract first company from content
+    const isListPage = r.title && /(?:top|best|list|directory|\d+)/i.test(r.title);
+    if (isListPage || !companyName) {
+      // Try to find company names in content (numbered lists, bullets)
+      const listPatterns = [
+        /(?:^|\n)\d+\.\s+([A-Z][A-Za-z0-9\s&''-]{2,40})(?:\s+[-–|:])/m,
+        /(?:^|\n)•\s+([A-Z][A-Za-z0-9\s&''-]{2,40})(?:\s+[-–|:])/m,
+        /\n([A-Z][A-Za-z0-9\s&''-]{2,40})(?:\s+is a|\s+provides|\s+-\s+)/m
+      ];
+
+      for (const pattern of listPatterns) {
+        const match = fullText.match(pattern);
+        if (match) {
+          companyName = match[1].trim();
+          break;
+        }
+      }
+    }
+
+    // If still no name, try domain as last resort
+    if (!companyName && url) {
+      const domain = extractDomain(url);
+      if (domain && !domain.includes('linkedin') && !domain.includes('crunchbase') && !domain.includes('list')) {
+        companyName = domain.split('.')[0];
+        companyName = companyName.charAt(0).toUpperCase() + companyName.slice(1);
+      }
+    }
+
+    // Extract company size
+    const sizeMatch = fullText.match(/\b(\d+[\s,]?\+?\s*(?:-|to)?\s*\d*)\s*(?:employees?|people|staff|team members?|headcount)\b/i);
+    const size = sizeMatch ? sizeMatch[1].replace(/\s+/g, ' ').trim() + ' employees' : "";
+
+    // Extract industry (look for common patterns)
+    let industry = "";
+    const industryPatterns = [
+      /(?:provides?|offers?|delivers?|specializes? in|focused on)\s+([A-Za-z\s,&-]{10,80}?)(?:\s+(?:solutions?|services?|software|platform|products?|for|to|and))/i,
+      /(?:industry|sector)[\s:]+([A-Za-z\s,&-]{5,50}?)(?:\.|,|;)/i,
+      /\b(SaaS|fintech|healthcare|e-commerce|AI|software|insurance|banking|logistics|marketing|HR tech|CRM|analytics|cybersecurity)\b/i
+    ];
+
+    for (const pattern of industryPatterns) {
+      const match = fullText.match(pattern);
+      if (match) {
+        industry = match[1].trim();
+        if (industry.length > 60) industry = industry.substring(0, 60);
+        break;
+      }
+    }
+
+    // Extract location
+    const locationPatterns = [
+      /(?:based in|headquartered in|located in|headquarters in|offices? in|from)\s+([A-Z][a-z]+(?:,?\s+[A-Z][a-z]+){0,3})/,
+      /([A-Z][a-z]+,\s+(?:UK|US|USA|EU|England|Scotland|Wales|California|New York|Texas|London|Manchester|Birmingham))/,
+    ];
+
+    let location = "";
+    for (const pattern of locationPatterns) {
+      const match = fullText.match(pattern);
+      if (match) {
+        location = match[1].trim();
+        break;
+      }
+    }
+
+    // Extract all emails first
+    const emails = extractEmails(fullText);
+
+    // Extract contacts (with emails matched) - pass searchType
+    const contacts = extractContacts(fullText, emails, searchType);
+
+    // Extract phones
+    const phones = extractPhones(fullText);
+
+    // Extract website
+    const website = extractCompanyWebsite(url, fullText);
+
     return {
-      title: r.title || r.headline || r.name || r.source || r.url || "",
-      url: r.url || r.link || r.uri || "",
-      // Truncate snippets aggressively to keep the tool output small
-      snippet: (r.text || r.summary || r.excerpt || "").substring(0, 800),
-      confidence: r.score || r.confidence || 1.0,
-      metadata: {
-        company: {
-          name: r.title?.split(/[-|]/)[0]?.trim() || "",
-          size: extract(/(\d+(?:[,\s]\d+)*\s*(?:\+\s*)?(?:employees?|people|staff|team members?))/i, fullText) || "",
-          industry: extract(/(?:industry|sector):\s*([^.]+)/i, fullText) || "",
-          location: extract(/(?:based in|headquartered in|located in|offices? in)\s+([^.]+)/i, fullText) || "",
-          founded: extract(/(?:founded|established|started)\s+in\s+(\d{4})/i, fullText) || "",
-        },
-        contacts: extractContacts(fullText),
-        financial: {
-          funding: extract(/raised\s+([^.]+)/i, fullText) || "",
-          revenue: extract(/revenue of\s+([^.]+)/i, fullText) || "",
-        },
-        // (rest of your logic...)
-      },
-      relevance: index + 1
+      companyName,
+      website,
+      industry,
+      size,
+      location,
+      contacts,
+      phones,
+      sourceUrl: url
     };
+  })
+    .filter(r => r.companyName && r.companyName.length > 2); // Only results with valid company name
+
+  // For contact searches, prioritize results with contacts
+  if (searchType === 'contacts') {
+    const withContacts = enriched.filter(r => r.contacts.length > 0);
+    return JSON.stringify({
+      query: params.query,
+      searchType,
+      results: withContacts.length > 0 ? withContacts : enriched, // Return all if no contacts found
+      total: withContacts.length > 0 ? withContacts.length : enriched.length,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // For company searches, allow any meaningful info
+  const filtered = enriched.filter(r => {
+    return r.website || r.contacts.length > 0 || r.industry || r.size || r.location;
   });
 
   return JSON.stringify({
     query: params.query,
-    results: enriched,
-    total: enriched.length,
+    searchType,
+    results: filtered,
+    total: filtered.length,
     timestamp: new Date().toISOString()
   });
 }
 
-// --- 4. YOUR FULL saveLeadToCrmHandler ---
+// --- saveLeadToCrmHandler ---
 const saveLeadToCrmHandler = async (
   params: {
     companyName: string;
@@ -147,7 +437,13 @@ const saveLeadToCrmHandler = async (
 ) => {
   if (!clerkId) return "Error: User not logged in.";
 
-  const ownerId = await getUserId(clerkId);
+  let ownerId: string;
+  try {
+    ownerId = await getUserId(clerkId);
+  } catch (error) {
+    console.error("Failed to get user ID:", error);
+    return `Error: ${(error as Error).message}`;
+  }
 
   // 1. Create Company
   const { data: companyData, error: companyError } = await supabaseAdmin
@@ -158,27 +454,30 @@ const saveLeadToCrmHandler = async (
         industry: params.industry || null,
         geography: params.geography || null,
         size: params.size || null,
-        status: "Discovery", // <-- Set status to Discovery
-        ownerId,
+        website: params.website || null,
+        status: "Lead",
+        ownerId
       },
     ])
     .select()
     .single();
 
   if (companyError || !companyData) {
-    return `Error saving company: ${companyError?.message || "Unknown error"}`;
+    console.error("Supabase Company insert error:", companyError);
+    return `Error saving company: ${companyError?.message || "Unknown error"}. Details: ${JSON.stringify(companyError)}`;
   }
 
   const companyId = companyData.id;
-  // --- FIX 4: 'contactsSaved' was undefined ---
   let contactsSaved = 0;
 
   // 2. Create People (Contacts) if they exist
   if (params.contacts && params.contacts.length > 0) {
+    console.log(`[SAVE] Attempting to save ${params.contacts.length} contacts:`, JSON.stringify(params.contacts, null, 2));
+
     const peopleToInsert = params.contacts
-      .filter((contact) => contact.name)
+      .filter((contact) => contact.name && contact.name.trim().length > 0)
       .map((contact) => {
-        const nameParts = contact.name.split(" ");
+        const nameParts = contact.name.trim().split(/\s+/);
         const firstName = nameParts.shift() || "";
         const lastName = nameParts.join(" ");
         return {
@@ -191,84 +490,172 @@ const saveLeadToCrmHandler = async (
         };
       });
 
+    console.log(`[SAVE] People to insert (${peopleToInsert.length}):`, JSON.stringify(peopleToInsert, null, 2));
+
     if (peopleToInsert.length > 0) {
-      const { error: peopleError } = await supabaseAdmin
+      const { data: peopleData, error: peopleError } = await supabaseAdmin
         .from("Person")
-        .insert(peopleToInsert);
+        .insert(peopleToInsert)
+        .select();
 
       if (peopleError) {
-        console.error(`Error saving contacts: ${peopleError.message}`);
+        console.error(`[SAVE ERROR] Error saving contacts:`, peopleError);
       } else {
         contactsSaved = peopleToInsert.length;
+        console.log(`[SAVE SUCCESS] Saved ${contactsSaved} contacts:`, JSON.stringify(peopleData, null, 2));
       }
+    } else {
+      console.log(`[SAVE] No valid contacts to insert after filtering`);
     }
+  } else {
+    console.log(`[SAVE] No contacts provided - saving company as lead without contacts (user can add manually later)`);
   }
 
   revalidatePath("/companies");
   revalidatePath(`/companies/${companyId}`);
   revalidatePath("/dashboard");
 
-  // Return the full company object along with a success message
+  const message = contactsSaved > 0
+    ? `Successfully saved ${params.companyName} to CRM with ${contactsSaved} contacts.`
+    : `Successfully saved ${params.companyName} to CRM. No contacts found - you can add them manually later.`;
+
   return JSON.stringify({
-    message: `Successfully saved ${params.companyName} to CRM with ${contactsSaved} contacts.`,
+    message,
     newCompany: companyData,
+    contactsSaved,
   });
 };
 
-
-// --- 5. Main entry: processAIRequest ---
+// --- Main entry: processAIRequest ---
 export async function processAIRequest(prompt: string) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("Not authenticated");
 
-  // Check required environment variables
-  if (!process.env.OPENAI_API_KEY) { /* (error) */ }
-  if (!process.env.EXA_API_KEY) { /* (error) */ }
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY not configured");
+  }
+  if (!process.env.EXA_API_KEY) {
+    throw new Error("EXA_API_KEY not configured");
+  }
+  if (!process.env.LANGFUSE_SECRET_KEY || !process.env.LANGFUSE_PUBLIC_KEY || !process.env.LANGFUSE_HOST) {
+    throw new Error("Langfuse environment not configured");
+  }
 
-  // --- 6. USE REAL LANGFUSE TRACE ---
   const trace = langfuse.trace({
     name: "ai-lead-generation",
     userId: clerkId,
     input: prompt,
-    tags: ["openai-tools", "copilot-flow"]
+    tags: ["openai-tools", "improved-extraction"]
   });
 
   try {
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       {
         role: "system",
-        // --- 7. THE "AGGRESSIVE" SYSTEM PROMPT ---
-        content: `You are an AI data entry assistant. Your job is to:
-1.  **Use the \`web_search\` tool** to find companies matching the user's request.
-2.  **Analyze the search results** to find the company name, industry, geography, and size.
-3.  **You MUST call \`save_lead_to_crm\`** for *every* company you identify. A \`companyName\` is the only requirement. Save all other details you find (industry, geography, size, contacts).
-4.  **Do NOT ask for permission** to save. Do not "qualify" the lead. Your job is to find and save.
-5.  **After all tool calls are complete,** provide a single, final summary to the user listing the companies you found and saved.`
+        content: `You are an AI lead generation assistant for a CRM system.
+
+YOUR PRIMARY GOAL: Extract COMPLETE company information including location, industry, size, website, and contacts.
+
+WORKFLOW (MANDATORY):
+1. Search for companies: web_search with searchType="company" 
+2. FOR EACH COMPANY FOUND, search for its leadership:
+   - web_search with searchType="contacts" and query "[Company Name] CEO founder director contact"
+   - Extract names, titles, emails from the results
+3. Call save_lead_to_crm with ALL available information:
+   ✓ companyName (required)
+   ✓ website (required - official company website)
+   ✓ geography (REQUIRED - e.g., "London, UK" or "San Francisco, California")
+   ✓ industry (e.g., "SaaS", "AI", "FinTech")
+   ✓ size (e.g., "100-200 employees", "450 employees")
+   ✓ contacts (OPTIONAL - include if found, but save lead anyway even without contacts)
+
+IMPORTANT: If you cannot find contacts after searching, STILL save the lead with whatever information you have.
+The user can manually add contacts later. A lead with company info but no contacts is STILL VALUABLE.
+
+SEARCH QUERY EXAMPLES:
+- Company: "B2B SaaS London 50-200 employees"
+- Contacts: "Multiverse CEO founder leadership team"
+- Contacts: "Instabase Anant Bhardwaj CEO founder contact"
+
+RESULT FORMAT from web_search includes:
+{
+  "companyName": "Multiverse",
+  "website": "https://multiverse.io",
+  "location": "London, UK",  <-- USE THIS for geography parameter
+  "industry": "EdTech/AI",
+  "size": "450 employees",
+  "contacts": [{"name": "Euan Blair", "title": "CEO", "email": "..."}]
+}
+
+CRITICAL: When calling save_lead_to_crm, YOU MUST:
+- Use the "location" field from search results as the "geography" parameter
+- Include industry if found in search results
+- Include size if found in search results
+- If user specified location (e.g., "London"), use that as geography even if not in search results
+- Include contacts ONLY if found (empty array [] is acceptable)
+- ALWAYS save the lead even if contacts are missing
+
+EXAMPLE save_lead_to_crm calls:
+
+WITH CONTACTS:
+{
+  "companyName": "Multiverse",
+  "website": "https://multiverse.io",
+  "geography": "London, UK",
+  "industry": "EdTech/AI",
+  "size": "450 employees",
+  "contacts": [{"name": "Euan Blair", "title": "CEO & Founder"}]
+}
+
+WITHOUT CONTACTS (still valid):
+{
+  "companyName": "Layer Health",
+  "website": "https://layerhealth.com",
+  "geography": "Cambridge, MA",
+  "industry": "Healthcare AI",
+  "size": "21 employees",
+  "contacts": []
+}
+
+A lead without geography/location is INCOMPLETE - always include it!
+A lead without contacts is ACCEPTABLE - save it anyway for manual follow-up!`
       },
       { role: "user", content: prompt },
     ];
 
-    // (Your tool-calling loop logic is perfect)
     while (true) {
-      // Keep the model input small: always include system + last few turns
-      const messagesForModel = [messages[0], ...messages.slice(-6)];
+      const messagesForModel = messages;
+
+      const gen = trace.generation({
+        name: "openai.chat.completions",
+        model: "gpt-4o",
+        input: messagesForModel,
+        metadata: { phase: "tool-planning" }
+      });
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: messagesForModel,
-        // limit response size to avoid very large outputs
-        max_tokens: 1024,
+        max_tokens: 1500,
         temperature: 0.2,
         tools: [
           {
             type: "function",
             function: {
               name: "web_search",
-              description: "Search the web for company information and contact details",
+              description: "Search for companies OR contacts. Use searchType='company' to find companies, searchType='contacts' to find leadership/decision-makers for a specific company.",
               parameters: {
                 type: "object",
                 properties: {
-                  query: { type: "string", description: "The search query" }
+                  query: {
+                    type: "string",
+                    description: "Search query. For companies: 'B2B SaaS London'. For contacts: '[CompanyName] CEO founder leadership team'"
+                  },
+                  searchType: {
+                    type: "string",
+                    enum: ["company", "contacts"],
+                    description: "Type of search: 'company' finds companies, 'contacts' finds leadership/contacts for a specific company"
+                  }
                 },
                 required: ["query"]
               }
@@ -278,41 +665,46 @@ export async function processAIRequest(prompt: string) {
             type: "function",
             function: {
               name: "save_lead_to_crm",
-              description: "Save a new company lead and its contacts to the CRM.",
+              description: "Save a company lead to CRM. Contacts are OPTIONAL - save the lead even if no contacts are found. User can add contacts manually later.",
               parameters: {
                 type: "object",
                 properties: {
-                  companyName: { type: "string", description: "The full name of the company." },
-                  industry: { type: "string", description: "The industry the company operates in." },
-                  geography: { type: "string", description: "The location of the company, e.g., 'San Francisco, CA'." },
-                  size: { type: "string", description: "The size of the company, e.g., '11-50 employees'." },
-                  website: { type: "string", description: "The company's official website." },
+                  companyName: { type: "string", description: "Company name" },
+                  industry: { type: "string", description: "Industry" },
+                  geography: { type: "string", description: "Location (e.g., 'London, UK')" },
+                  size: { type: "string", description: "Company size (e.g., '50-100 employees')" },
+                  website: { type: "string", description: "Official website URL - REQUIRED" },
                   contacts: {
                     type: "array",
-                    description: "A list of contacts at the company.",
+                    description: "Array of contacts - OPTIONAL. Include if found, but empty array is acceptable if no contacts found.",
                     items: {
                       type: "object",
                       properties: {
-                        name: { type: "string", description: "Full name of the contact." },
-                        title: { type: "string", description: "Job title of the contact." },
-                        email: { type: "string", description: "Email address of the contact." },
+                        name: { type: "string", description: "Full name (e.g., 'John Smith')" },
+                        title: { type: "string", description: "Job title (e.g., 'CEO', 'Founder', 'CTO')" },
+                        email: { type: "string", description: "Email address if available" },
                       },
                       required: ["name"],
                     },
                   },
                 },
-                required: ["companyName"],
+                required: ["companyName", "website"],
               },
             },
           }
         ],
-        tool_choice: "auto"
+        tool_choice: "auto",
+        user: clerkId
       });
+
+      try {
+        gen.update({ output: completion });
+      } catch { }
+      gen.end();
 
       const message = completion.choices?.[0]?.message;
 
       if (message?.content) {
-        // --- 8. FIX LANGFUSE ERROR LOGGING ---
         await trace.update({ output: message.content });
         return message.content;
       }
@@ -334,21 +726,21 @@ export async function processAIRequest(prompt: string) {
           let result;
           try {
             if (toolName === "save_lead_to_crm") {
+              console.log(`[TOOL CALL] save_lead_to_crm called with args:`, JSON.stringify(args, null, 2));
               result = await saveLeadToCrmHandler(args, clerkId);
+              console.log(`[TOOL CALL] save_lead_to_crm result:`, result);
             } else if (toolName === "web_search") {
               result = await webSearchHandler(args);
             } else {
               result = `Tool ${toolName} not found`;
             }
-            // Truncate any very large tool outputs before adding to messages to avoid token limit errors
             if (typeof result === 'string' && result.length > 8000) {
-              result = result.slice(0, 8000) + '\n...[truncated output]';
+              result = result.slice(0, 8000) + '\n...[truncated]';
             }
             toolCallSpan.update({ output: result });
           } catch (e: any) {
-            result = `Error executing tool ${toolName}: ${e.message}`;
-            // --- 8. FIX LANGFUSE ERROR LOGGING ---
-            toolCallSpan.update({ output: result });
+            result = `Error: ${e.message}`;
+            toolCallSpan.update({ output: result, level: "ERROR" });
             console.error(result);
           }
 
@@ -365,18 +757,14 @@ export async function processAIRequest(prompt: string) {
       break;
     }
 
-    await trace.update({ output: "Model did not return content." });
+    await trace.update({ output: "No content returned" });
     return "No response from AI.";
 
-    // --- 9. FIX CATASTROPHIC TYPO ---
   } catch (error) {
-    // It was `} catch (error)Player {`, which was a typo.
-    // It is now `} catch (error) {`
-    // --- END FIX ---
-
-    // Log the error
     await trace.update({ output: (error as Error).message });
     console.error("AI processing error:", error);
     throw error;
+  } finally {
+    await langfuse.shutdownAsync();
   }
 }

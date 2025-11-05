@@ -1,0 +1,529 @@
+// Location: /lib/actions/ai.actions.ts
+// --- THIS IS THE FINAL, COMPLETE, AND CORRECTED FILE ---
+
+"use server";
+
+import { auth } from "@clerk/nextjs/server";
+import OpenAI from "openai";
+import { revalidatePath } from "next/cache";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import Exa from "exa-js";
+// --- 1. IMPORT REAL LANGFUSE ---
+import { Langfuse } from "langfuse";
+
+// --- 2. INITIALIZE ALL CLIENTS ---
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
+// Note: we'll instantiate Exa per-call in the handler to ensure correct API key usage
+// const exa = new Exa(process.env.EXA_API_KEY!);
+
+const langfuse = new Langfuse({
+  secretKey: process.env.LANGFUSE_SECRET_KEY!,
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY!,
+  baseUrl: process.env.LANGFUSE_HOST!,
+});
+
+
+// Helper function to get our internal user ID
+async function getUserId(clerkId: string) {
+  // --- FIX 1: Removed stray 'D' ---
+  const { data, error } = await supabaseAdmin
+    .from("User")
+    .select("id")
+    .eq("clerkId", clerkId)
+    .single();
+
+  if (error || !data) throw new Error("User not found in DB.");
+  return data.id;
+}
+
+// --- 3. REAL EXA WEB_SEARCH HANDLER ---
+// (This is your complex handler, but with the Exa API call fixed)
+async function webSearchHandler(params: { query: string }) {
+  const apiKey = process.env.EXA_API_KEY;
+  if (!apiKey) throw new Error("EXA_API_KEY not configured");
+
+  const exa = new Exa(apiKey);
+  console.log(`[AI] Calling Exa with query: ${params.query}`);
+
+  let allResults: any[] = [];
+  try {
+    const searchResponse = await exa.searchAndContents(params.query, {
+      numResults: 5,
+      useAutoprompt: true,
+      text: {
+        includeHtmlTags: false,
+        maxCharacters: 2000
+      }
+    });
+    allResults = searchResponse.results;
+  } catch (e) {
+    console.error("Exa search error:", e);
+    throw new Error("Exa search failed");
+  }
+
+  const uniqueResults = Array.from(new Map(allResults.map(r => [r.url || r.link || r.uri, r])).values());
+  const limitedResults = uniqueResults.slice(0, 6);
+
+  const roleWeights = new Map<string, number>([
+    ["ceo", 1.0], ["chief executive officer", 1.0], ["founder", 0.95], ["co-founder", 0.9],
+    ["cto", 0.9], ["cso", 0.85], ["ciso", 0.85], ["vp sales", 0.95], ["head of sales", 0.95],
+    ["sales", 0.8], ["revenue", 0.85], ["revops", 0.85], ["business development", 0.85],
+    ["partnerships", 0.8], ["growth", 0.8], ["marketing", 0.75], ["product", 0.75],
+  ]);
+
+  const cleanDomain = (u?: string) => {
+    try {
+      const url = new URL(u || "");
+      const host = url.hostname.toLowerCase();
+      // remove common subdomains
+      return host.replace(/^www\./, "").replace(/^app\./, "").replace(/^blog\./, "");
+    } catch { return ""; }
+  };
+
+  const normalizeName = (name: string) =>
+    name.trim().replace(/\s+/g, " ").toLowerCase();
+
+  const uniqueBy = <T>(items: T[], key: (x: T) => string) => {
+    const m = new Map<string, T>();
+    for (const it of items) {
+      const k = key(it);
+      if (!m.has(k)) m.set(k, it);
+    }
+    return Array.from(m.values());
+  };
+
+  const inferRoleScore = (roleRaw: string) => {
+    const role = roleRaw.toLowerCase();
+    let score = 0.3;
+    // Avoid for..of on Map to bypass TS2802 under older targets
+    roleWeights.forEach((w, k) => {
+      if (role.includes(k)) score = Math.max(score, w);
+    });
+    return score;
+  };
+
+  const extractEmails = (text: string): string[] => {
+    return Array.from(text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || []);
+  };
+
+  const generateEmailCandidates = (name: string, domain: string): string[] => {
+    if (!name || !domain) return [];
+    const [first, ...rest] = name.trim().split(/\s+/);
+    const last = rest.join(" ");
+    const f = first?.toLowerCase() || "";
+    const l = last?.toLowerCase().replace(/\s+/g, "") || "";
+    const sep = ".";
+    const base = [
+      `${f}${sep}${l}`,
+      `${f}${l}`,
+      `${f}`,
+      (f && l) ? `${f[0]}${sep}${l}` : "",
+      (f && l) ? `${f[0]}${l}` : "",
+      (f && l) ? `${first[0]}${last.split(/\s+/).map(s => s[0]).join("")}`.toLowerCase() : ""
+    ].filter(Boolean);
+    return Array.from(new Set(base.map(b => `${b}@${domain}`)));
+  };
+
+  const extractSocial = (text: string, name: string) => {
+    const socials = {
+      linkedin: Array.from(text.match(/https?:\/\/(www\.)?linkedin\.com\/in\/[A-Za-z0-9\-_%/]+/gi) || [])[0] || "",
+      twitter: Array.from(text.match(/https?:\/\/(www\.)?(x|twitter)\.com\/[A-Za-z0-9_]+/gi) || [])[0] || "",
+      github: Array.from(text.match(/https?:\/\/(www\.)?github\.com\/[A-Za-z0-9\-]+/gi) || [])[0] || "",
+    };
+    return socials;
+  };
+
+  const extractContactsImproved = (text: string, companyDomain: string) => {
+    const emailsInText = extractEmails(text);
+    const contacts: { name: string; title?: string; email?: string; score: number; social?: any }[] = [];
+
+    // Patterns catching "Name, Title", "Name is Title", "Title: Name"
+    const patterns: RegExp[] = [
+      /([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)\s*,\s*([A-Z][A-Za-z0-9&\-/\s]{2,60})/g,
+      /([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)\s+(?:is|as)\s+(?:the\s+)?([A-Z][A-Za-z0-9&\-/\s]{2,60})/g,
+      /([A-Z][A-Za-z0-9&\-/\s]{2,60})\s*[:\-–]\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)/g, // Title: Name
+    ];
+
+    for (const pat of patterns) {
+      let m: RegExpExecArray | null;
+      while ((m = pat.exec(text)) !== null) {
+        let name = "";
+        let title = "";
+
+        // Map captures to name/title depending on pattern
+        if (pat === patterns[2]) {
+          title = (m[1] || "").trim();
+          name = (m[2] || "").trim();
+        } else {
+          name = (m[1] || "").trim();
+          title = (m[2] || "").trim();
+        }
+
+        // Basic sanity checks
+        if (!name || name.split(" ").length < 2) continue;
+        if (title && title.length > 80) title = title.slice(0, 80);
+
+        // Match any email whose local part contains first or last token
+        const nameTokens = name.toLowerCase().split(/\s+/);
+        const emailMatch = emailsInText.find(e => {
+          const local = e.split("@")[0].toLowerCase();
+          return nameTokens.some(t => local.includes(t));
+        });
+
+        // If no email present, generate candidates from domain
+        let email = emailMatch || "";
+        if (!email && companyDomain) {
+          const candidates = generateEmailCandidates(name, companyDomain);
+          // Prefer candidates whose domain appears in any found email
+          const domainSeen = emailsInText.some(e => e.toLowerCase().endsWith(`@${companyDomain}`));
+          email = domainSeen ? (candidates[0] || "") : "";
+        }
+
+        const score = inferRoleScore(title || "");
+        contacts.push({
+          name,
+          title,
+          email,
+          score,
+          social: extractSocial(text, name),
+        });
+      }
+    }
+
+    // Deduplicate by email if present, else by normalized name
+    const deduped = uniqueBy(
+      contacts.sort((a, b) => b.score - a.score),
+      c => (c.email ? `e:${c.email.toLowerCase()}` : `n:${normalizeName(c.name)}`)
+    );
+
+    // Limit to top 5 contacts to keep payload small
+    return deduped.slice(0, 5).map(({ score, ...rest }) => rest);
+  }
+
+  // (Your excellent data extraction logic)
+  const enriched = limitedResults.map((r: any, index) => {
+    const fullText = `${r.title || ""} ${r.text || ""} ${r.summary || ""}`;
+
+    const extract = (pattern: RegExp, text: string, group = 1): string => {
+      const match = text.match(pattern);
+      return match ? match[group] : "";
+    };
+
+    const companyDomain = cleanDomain(r.url || r.link || r.uri || "");
+
+    return {
+      title: r.title || r.headline || r.name || r.source || r.url || "",
+      url: r.url || r.link || r.uri || "",
+      snippet: (r.text || r.summary || r.excerpt || "").substring(0, 800),
+      confidence: r.score || r.confidence || 1.0,
+      metadata: {
+        company: {
+          name: r.title?.split(/[-|]/)[0]?.trim() || "",
+          size: extract(/(\d+(?:[,\s]\d+)*\s*(?:\+\s*)?(?:employees?|people|staff|team members?))/i, fullText) || "",
+          industry: extract(/(?:industry|sector):\s*([^.]+)/i, fullText) || "",
+          location: extract(/(?:based in|headquartered in|located in|offices? in)\s+([^.]+)/i, fullText) || "",
+          founded: extract(/(?:founded|established|started)\s+in\s+(\d{4})/i, fullText) || "",
+          domain: companyDomain || "",
+        },
+        contacts: extractContactsImproved(fullText, companyDomain),
+        financial: {
+          funding: extract(/raised\s+([^.]+)/i, fullText) || "",
+          revenue: extract(/revenue of\s+([^.]+)/i, fullText) || "",
+        },
+      },
+      relevance: index + 1
+    };
+  });
+
+  return JSON.stringify({
+    query: params.query,
+    results: enriched,
+    total: enriched.length,
+    timestamp: new Date().toISOString()
+  });
+}
+
+// --- 4. YOUR FULL saveLeadToCrmHandler ---
+const saveLeadToCrmHandler = async (
+  params: {
+    companyName: string;
+    industry?: string;
+    geography?: string;
+    size?: string;
+    website?: string;
+    contacts?: { name: string; title?: string; email?: string }[];
+  },
+  clerkId?: string
+) => {
+  if (!clerkId) return "Error: User not logged in.";
+
+  let ownerId: string;
+  try {
+    ownerId = await getUserId(clerkId);
+  } catch (error) {
+    console.error("Failed to get user ID:", error);
+    return `Error: ${(error as Error).message}`;
+  }
+
+  // 1. Create Company
+  const { data: companyData, error: companyError } = await supabaseAdmin
+    .from("Company")
+    .insert([
+      {
+        name: params.companyName,
+        industry: params.industry || null,
+        geography: params.geography || null,
+        size: params.size || null,
+        website: params.website || null,
+        status: "Lead",
+        ownerId
+      },
+    ])
+    .select()
+    .single();
+
+  if (companyError || !companyData) {
+    console.error("Supabase Company insert error:", companyError);
+    return `Error saving company: ${companyError?.message || "Unknown error"}. Details: ${JSON.stringify(companyError)}`;
+  }
+
+  const companyId = companyData.id;
+  // --- FIX 4: 'contactsSaved' was undefined ---
+  let contactsSaved = 0;
+
+  // 2. Create People (Contacts) if they exist
+  if (params.contacts && params.contacts.length > 0) {
+    const peopleToInsert = params.contacts
+      .filter((contact) => contact.name)
+      .map((contact) => {
+        const nameParts = contact.name.split(" ");
+        const firstName = nameParts.shift() || "";
+        const lastName = nameParts.join(" ");
+        return {
+          firstName,
+          lastName: lastName || null,
+          email: contact.email || null,
+          title: contact.title || null,
+          companyId,
+          ownerId,
+        };
+      });
+
+    if (peopleToInsert.length > 0) {
+      const { error: peopleError } = await supabaseAdmin
+        .from("Person")
+        .insert(peopleToInsert);
+
+      if (peopleError) {
+        console.error(`Error saving contacts: ${peopleError.message}`);
+      } else {
+        contactsSaved = peopleToInsert.length;
+      }
+    }
+  }
+
+  revalidatePath("/companies");
+  revalidatePath(`/companies/${companyId}`);
+  revalidatePath("/dashboard");
+
+  // Return the full company object along with a success message
+  return JSON.stringify({
+    message: `Successfully saved ${params.companyName} to CRM with ${contactsSaved} contacts.`,
+    newCompany: companyData,
+  });
+};
+
+
+// --- 5. Main entry: processAIRequest ---
+export async function processAIRequest(prompt: string) {
+  const { userId: clerkId } = auth();
+  if (!clerkId) throw new Error("Not authenticated");
+
+  // Check required environment variables
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY not configured");
+  }
+  if (!process.env.EXA_API_KEY) {
+    throw new Error("EXA_API_KEY not configured");
+  }
+  if (!process.env.LANGFUSE_SECRET_KEY || !process.env.LANGFUSE_PUBLIC_KEY || !process.env.LANGFUSE_HOST) {
+    throw new Error("Langfuse environment not configured: LANGFUSE_SECRET_KEY, LANGFUSE_PUBLIC_KEY, and LANGFUSE_HOST are required");
+  }
+
+  // --- 6. USE REAL LANGFUSE TRACE ---
+  const trace = langfuse.trace({
+    name: "ai-lead-generation",
+    userId: clerkId,
+    input: prompt,
+    tags: ["openai-tools", "copilot-flow"]
+  });
+
+  try {
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      {
+        role: "system",
+        // --- 7. THE "AGGRESSIVE" SYSTEM PROMPT ---
+        content: `You are an AI data entry assistant. Your job is to:
+1.  **Use the \`web_search\` tool** to find companies matching the user's request.
+2.  **Analyze the search results** to find the company name, industry, geography, size, and real human contacts.
+3.  **You MUST call \`save_lead_to_crm\`** for *every* company you identify. A \`companyName\` is the only requirement. Save all other details you find (industry, geography, size, contacts).
+4.  **Do NOT ask for permission** to save. Do not "qualify" the lead. Your job is to find and save.
+5.  **After all tool calls are complete,** provide a single, final summary to the user listing the companies you found and saved.`
+      },
+      { role: "user", content: prompt },
+    ];
+
+    // (Your tool-calling loop logic is perfect)
+    while (true) {
+      // Send all messages - we've already truncated tool outputs to 8000 chars
+      // OpenAI will handle the context window, and we need complete message sequences
+      const messagesForModel = messages;
+
+      // Observe the model call in Langfuse as a generation for better dashboard visibility
+      const gen = trace.generation({
+        name: "openai.chat.completions",
+        model: "gpt-4o",
+        input: messagesForModel,
+        metadata: { phase: "tool-planning" }
+      });
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: messagesForModel,
+        // limit response size to avoid very large outputs
+        max_tokens: 1024,
+        temperature: 0.2,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "web_search",
+              description: "Search the web for company information and contact details",
+              parameters: {
+                type: "object",
+                properties: {
+                  query: { type: "string", description: "The search query" }
+                },
+                required: ["query"]
+              }
+            }
+          },
+          {
+            type: "function",
+            function: {
+              name: "save_lead_to_crm",
+              description: "Save a new company lead and its contacts to the CRM.",
+              parameters: {
+                type: "object",
+                properties: {
+                  companyName: { type: "string", description: "The full name of the company." },
+                  industry: { type: "string", description: "The industry the company operates in." },
+                  geography: { type: "string", description: "The location of the company, e.g., 'San Francisco, CA'." },
+                  size: { type: "string", description: "The size of the company, e.g., '11-50 employees'." },
+                  website: { type: "string", description: "The company's official website." },
+                  contacts: {
+                    type: "array",
+                    description: "A list of contacts at the company.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        name: { type: "string", description: "Full name of the contact." },
+                        title: { type: "string", description: "Job title of the contact." },
+                        email: { type: "string", description: "Email address of the contact." },
+                      },
+                      required: ["name"],
+                    },
+                  },
+                },
+                required: ["companyName"],
+              },
+            },
+          }
+        ],
+        tool_choice: "auto",
+        // Helps attribute usage in OpenAI dashboard
+        user: clerkId
+      });
+
+      // Record model output in Langfuse
+      try {
+        gen.update({ output: completion });
+      } catch { }
+      gen.end();
+
+      const message = completion.choices?.[0]?.message;
+
+      if (message?.content) {
+        // --- 8. FIX LANGFUSE ERROR LOGGING ---
+        await trace.update({ output: message.content });
+        return message.content;
+      }
+
+      if (message?.tool_calls) {
+        messages.push(message);
+
+        const toolSpan = trace.span({ name: "tool-execution-loop" });
+
+        for (const toolCall of message.tool_calls) {
+          const toolName = toolCall.function.name;
+          const args = JSON.parse(toolCall.function.arguments || "{}");
+
+          const toolCallSpan = toolSpan.span({
+            name: toolName,
+            input: args,
+          });
+
+          let result;
+          try {
+            if (toolName === "save_lead_to_crm") {
+              result = await saveLeadToCrmHandler(args, clerkId);
+            } else if (toolName === "web_search") {
+              result = await webSearchHandler(args);
+            } else {
+              result = `Tool ${toolName} not found`;
+            }
+            // Truncate any very large tool outputs before adding to messages to avoid token limit errors
+            if (typeof result === 'string' && result.length > 8000) {
+              result = result.slice(0, 8000) + '\n...[truncated output]';
+            }
+            toolCallSpan.update({ output: result });
+          } catch (e: any) {
+            result = `Error executing tool ${toolName}: ${e.message}`;
+            // --- 8. FIX LANGFUSE ERROR LOGGING ---
+            toolCallSpan.update({ output: result, level: "ERROR" });
+            console.error(result);
+          }
+
+          toolCallSpan.end();
+          messages.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: result,
+          });
+        }
+        toolSpan.end();
+        continue;
+      }
+      break;
+    }
+
+    await trace.update({ output: "Model did not return content." });
+    return "No response from AI.";
+
+    // --- 9. FIX CATASTROPHIC TYPO ---
+  } catch (error) {
+    // It was `} catch (error)Player {`, which was a typo.
+    // It is now `} catch (error) {`
+    // --- END FIX ---
+
+    // Log the error
+    await trace.update({ output: (error as Error).message });
+    console.error("AI processing error:", error);
+    throw error;
+  } finally {
+    await langfuse.shutdown();
+  }
+}

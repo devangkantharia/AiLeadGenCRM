@@ -128,6 +128,11 @@ export default function SingleCompanyPage({
             <Text size="2" className={cn("px-2.5 py-0.5 rounded-full", getStatusColor(typedCompany.status))}>{typedCompany.status}</Text>
           </Flex>
           <Flex gap="4" mt="2">
+            {typedCompany.website && (
+              <a href={typedCompany.website} target="_blank" rel="noopener noreferrer" style={{ color: `var(--accent-11)` }} className="hover:underline">
+                <Text as="span" weight="regular">🌐 {typedCompany.website.replace(/^https?:\/\/(www\.)?/, '')}</Text>
+              </a>
+            )}
             <Text style={{ color: `var(--accent-11)` }} as="span" weight="regular">{typedCompany.industry || "No industry"}</Text>
             <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">{typedCompany.size || "No size"}</Text>
             <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">{typedCompany.geography || "No geography"}</Text>

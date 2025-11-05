@@ -36,6 +36,7 @@ model Company {
   industry  String?
   size      String? // e.g., "1-10", "11-50"
   geography String? // e.g., "London, UK"
+  website   String? // Company website URL
   status    String  @default("Lead") // "Lead", "Prospect", "Customer"
 
   // Relations

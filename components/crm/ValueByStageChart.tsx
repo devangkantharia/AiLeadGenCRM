@@ -14,7 +14,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  Cell,
 } from "recharts";
+import { CHART_COLORS, getStageHexColor } from "@/lib/stageColors";
 
 
 
@@ -39,6 +41,7 @@ export function ValueByStageChart({ data }: { data: { name: string, value: numbe
           left: 20,
           bottom: 5,
         }}
+        className={`${isDarkMode ? 'opacity-60' : 'opacity-70'}`}
       >
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="name" fontSize={12} />
@@ -53,7 +56,11 @@ export function ValueByStageChart({ data }: { data: { name: string, value: numbe
           }
         />
         <Legend />
-        <Bar dataKey="value" fill={`var(--${currentAccentColor}-10)`} />
+        <Bar dataKey="value">
+          {data.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={getStageHexColor(entry.name)} />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );

@@ -7,6 +7,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DealCard } from "./DealCard";
 import { Box, Heading, Text, useThemeContext } from "@radix-ui/themes";
+import { getLaneBackgroundColor, getLaneBorderColor, getStageHexColor } from "@/lib/stageColors";
 
 export function DealLane({
   stage,
@@ -22,15 +23,25 @@ export function DealLane({
   const { accentColor: currentAccentColor, appearance } = useThemeContext();
   const isDarkMode = appearance === 'dark';
 
+  const bgColor = getLaneBackgroundColor(stage, isDarkMode);
+  const borderColor = getLaneBorderColor(stage, isDarkMode);
+  const headingColor = getStageHexColor(stage);
 
   return (
     <Box
-      ref={setNodeRef} // Apply the droppable ref to the main container
-      key={stage} // key should still be here for React's rendering
-      className={`p-4 rounded-lg shadow-sm h-full flex flex-col ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-100 border-gray-200'}`}
+      ref={setNodeRef}
+      key={stage}
+      className="p-4 rounded-lg shadow-sm h-full flex flex-col"
+      style={{
+        backgroundColor: bgColor,
+        borderWidth: '2px',
+        borderStyle: 'solid',
+        borderColor: borderColor
+      }}
     >
-
-      <Heading color={currentAccentColor} size="3" mb="6">{stage}</Heading>
+      <Heading size="3" mb="6" style={{ color: headingColor }}>
+        {stage}
+      </Heading>
 
 
       {/* This context tells dnd-kit that the items inside here are sortable 

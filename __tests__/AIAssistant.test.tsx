@@ -75,7 +75,7 @@ describe('AIAssistant Component', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/ai/process', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: 'Hello AI', history: [] }),
+      body: JSON.stringify({ prompt: 'Hello AI' }),
     });
 
     // Check 3: Wait for the mock response to appear

@@ -9,19 +9,7 @@ import { cn } from "@/lib/utils";
 import { Card, Flex, Heading, Text, Box, useThemeContext, Grid, Badge } from "@radix-ui/themes";
 import { DecorativeBox, ThemesVolumeControlExample } from "@/components/ThemesDocsAssets";
 import { Company } from "@prisma/client";
-
-const getStatusColor = (status: string): "blue" | "yellow" | "purple" | "gray" => {
-  switch (status.toLowerCase()) {
-    case "lead":
-      return "blue";
-    case "contacted":
-      return "yellow";
-    case "negotiation":
-      return "purple";
-    default:
-      return "gray";
-  }
-};
+import { getStatusBadgeColor } from "@/lib/stageColors";
 
 export default function CompaniesPage() {
   const {
@@ -95,7 +83,7 @@ export default function CompaniesPage() {
                           {company.deals && company.deals.length > 0 ? (
                             company.deals.map((deal: any) => (
                               <Box key={deal.id} style={{ maxWidth: '100px' }}>
-                                <Badge color={getStatusColor(deal.stage)} style={{ width: '100%' }}>
+                                <Badge color={getStatusBadgeColor(deal.stage)} style={{ width: '100%' }}>
                                   {deal.stage}
                                 </Badge>
                               </Box>

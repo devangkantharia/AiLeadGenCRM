@@ -4,7 +4,8 @@
 "use client";
 
 import { useState } from "react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts"; import { Flex, Box, Heading, Text } from "@radix-ui/themes";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts"; import { Flex, Box, Heading, Text, useThemeContext } from "@radix-ui/themes";
+import { CHART_COLORS, getStageHexColor } from "@/lib/stageColors";
 
 // Define the shape of a single deal
 interface Deal {
@@ -14,15 +15,6 @@ interface Deal {
   company: { name: string } | null;
 }
 
-// Define some nice colors for our chart
-const COLORS = [
-  "#0088FE", // Discovery (Blue)
-  "#FFBB28", // Proposal (Yellow)
-  "#8884d8", // Negotiation (Purple)
-  "#00C49F", // Won (Green)
-  "#FF8042", // Lost (Red)
-];
-
 // Data we expect: [{ name: 'Discovery', count: 5 }, { name: 'Proposal', count: 2 }, ...]
 export function DealsByStageChart({
   data,
@@ -31,6 +23,8 @@ export function DealsByStageChart({
   data: { name: string; count: number }[];
   allDeals: Deal[];
 }) {
+  const { accentColor: currentAccentColor, appearance } = useThemeContext();
+  const isDarkMode = appearance === 'dark';
   const [hoveredStage, setHoveredStage] = useState<string | null>(null);
 
   const handleMouseEnter = (data: any) => {
@@ -65,7 +59,7 @@ export function DealsByStageChart({
               onMouseLeave={handleMouseLeave}
             >
               {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                <Cell className={`${isDarkMode ? 'opacity-50' : 'opacity-70'}`} key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
             </Pie>
             <Tooltip />
@@ -74,13 +68,13 @@ export function DealsByStageChart({
       </Box>
       <Box width="33.33%">
         {hoveredStage && dealsForHoveredStage.length > 0 && (
-          <Box>
-            <Heading as="h3" size="3" mb="2" style={{ color: COLORS[data.findIndex(d => d.name === hoveredStage) % COLORS.length] }}>
+          <Box pt='30px'>
+            <Heading as="h3" size="3" mb="2" style={{ color: getStageHexColor(hoveredStage) }}>
               {hoveredStage} Deals
             </Heading>
             <ol style={{ listStyle: 'decimal', paddingLeft: '20px' }}>
               {dealsForHoveredStage.map((deal) => (
-                <li style={{ color: COLORS[data.findIndex(d => d.name === hoveredStage) % COLORS.length] }} key={deal.id}><Text size="2" >{deal.name} ({deal.company?.name || "No Company"})</Text></li>
+                <li style={{ color: getStageHexColor(hoveredStage) }} key={deal.id}><Text size="2" >{deal.name} ({deal.company?.name || "No Company"})</Text></li>
               ))}
             </ol>
           </Box>
