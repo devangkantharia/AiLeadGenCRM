@@ -52,9 +52,6 @@ export function AIAssistant() {
     setInput('');
     setIsLoading(true);
 
-    // Truncate messages to the last 4 to avoid exceeding token limits
-    const truncatedHistory = messages.slice(-4);
-
     const assistantId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
 
@@ -62,7 +59,7 @@ export function AIAssistant() {
       const res = await fetch('/api/ai/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: input, history: truncatedHistory }),
+        body: JSON.stringify({ prompt: input }),
       });
 
       let data;
@@ -75,10 +72,12 @@ export function AIAssistant() {
       const output = data?.output ?? data?.error ?? "No response";
 
       // Check if the output is a JSON string indicating a successful save
+      let foundSavedCompany = false;
       try {
         const result = JSON.parse(output);
         if (result.message && result.newCompany) {
           toast.success(result.message);
+          foundSavedCompany = true;
 
           // Optimistically update the 'companies' query cache
           queryClient.setQueryData(['companies'], (oldData: any[] | undefined) => {
@@ -89,7 +88,19 @@ export function AIAssistant() {
         }
       } catch (e) {
         // If parsing fails, it's just a regular text response from the AI
-        // No optimistic update needed.
+        // Check if the response mentions saving companies successfully
+        const lowerOutput = output.toLowerCase();
+        if (lowerOutput.includes('saved') || lowerOutput.includes('successfully')) {
+          foundSavedCompany = true;
+        }
+      }
+
+      // If companies were saved, invalidate the query to refetch fresh data
+      if (foundSavedCompany) {
+        // Small delay to ensure server-side revalidation completes
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['companies'] });
+        }, 500);
       }
 
       setMessages(prev =>
@@ -108,6 +119,35 @@ export function AIAssistant() {
     }
   };
 
+  const MessageBubble = ({ role, content, citations }: { role: 'user' | 'assistant', content: string, citations?: any[] }) => {
+    const isUser = role === 'user';
+    return (
+      <Flex justify={isUser ? 'end' : 'start'} className="w-full">
+        <Box
+          className={`max-w-[800px] rounded-xl px-4 py-3 shadow-sm border ${isUser
+            ? 'bg-blue-50 border-blue-200'
+            : 'bg-white border-gray-200'
+            }`}
+        >
+          <div className="mb-1">
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isUser
+              ? 'bg-blue-100 text-blue-700'
+              : 'bg-gray-100 text-gray-700'
+              }`}>
+              {isUser ? 'You' : 'Assistant'}
+            </span>
+          </div>
+          <div style={{ whiteSpace: 'pre-wrap' }}>
+            {content ? <MessageContent content={content} /> : <Spinner />}
+          </div>
+          {citations && citations.length > 0 && (
+            <Box mt="2"><Citation citations={citations} /></Box>
+          )}
+        </Box>
+      </Flex>
+    );
+  };
+
   return (
     <Flex direction="column" style={{ height: '400px' }}>
       <Box p="4" mb="2" style={{ borderBottom: `1px solid var(--gray-a5)` }}>
@@ -115,19 +155,8 @@ export function AIAssistant() {
       </Box>
 
       <Flex direction="column" p="4" gap="4" style={{ flexGrow: 1, overflowY: 'auto' }}>
-        {messages.map((message) => (
-          <Flex key={message.id} justify={message.role === 'user' ? 'end' : 'start'}>
-            <Box style={{ whiteSpace: 'pre-wrap' }}>
-              {message.content ? (
-                <MessageContent content={message.content} />
-              ) : (
-                <Spinner />
-              )}
-              {message.citations && message.citations.length > 0 && (
-                <Box mt="2"><Citation citations={message.citations} /></Box>
-              )}
-            </Box>
-          </Flex>
+        {messages.map((m) => (
+          <MessageBubble key={m.id} role={m.role} content={m.content} citations={m.citations} />
         ))}
         <div ref={messagesEndRef} />
       </Flex>

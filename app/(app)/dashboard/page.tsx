@@ -36,8 +36,10 @@ const RefreshIcon = ({ isFetching }: { isFetching: boolean }) => (
 function Dashboard({ allDeals, allCompanies }: { allDeals: any[], allCompanies: any[] }) {
   const { accentColor: currentAccentColor, appearance } = useThemeContext();
   const isDarkMode = appearance === 'dark';
+  // Filter for "Lead" status (AI-generated leads) and sort by newest first
   const newLeads =
-    allCompanies?.filter((company) => company.status === "Discovery") || [];
+    allCompanies?.filter((company) => company.status === "Lead")
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) || [];
 
   const dealsByStage = STAGES.map((stage) => {
     const dealsInStage = allDeals?.filter((deal: any) => deal.stage === stage) || [];
