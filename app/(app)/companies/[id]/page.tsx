@@ -152,8 +152,8 @@ export default function SingleCompanyPage({
                 <Flex justify="between" align="center">
                   <Box>
                     <Text style={{ color: `var(--accent-11)` }} as="span" weight="medium" size="3">{person.firstName} {person.lastName} - </Text>
-                    <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">{person.title || 'N/A'}</Text>
-                    <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">{person.email}</Text>
+                    <Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">{person.title || 'N/A'} </Text>
+                    <Box><Text style={{ color: `var(--accent-8)` }} as="span" weight="regular">{person.email}</Text></Box>
                   </Box>
                   <EditPersonButton person={person} />
                 </Flex>

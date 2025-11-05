@@ -46,6 +46,7 @@ import * as React from "react";
 // import { accentColors, themePropDefs } from "@utils/themes/props";
 // import { TabNavDemo } from "@components/tab-nav-demo";
 import styles from "@/components/ThemesDocsAssets.module.css";
+import Image from "next/image";
 
 export function ThemesPanelCardExample({
   panelBackground,
@@ -1228,9 +1229,10 @@ function AlbumCard() {
     <Card size="1">
       <Box py="5">
         <Flex mb="4" justify="center" position="relative">
-          <img
+          <Image
             width="100"
             height="100"
+            alt="Album cover"
             src="https://workos.imgix.net/images/e35b46dc-4384-43d1-932c-24fa44e212cd.png?auto=format&fit=clip&q=80"
             style={{
               borderRadius: "var(--radius-3)",

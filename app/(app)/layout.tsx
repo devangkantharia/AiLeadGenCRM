@@ -38,7 +38,7 @@ export default function AppLayout({
   // Force a re-render on browser back/forward navigation
   useEffect(() => {
     router.refresh();
-  }, [pathname]);
+  }, [pathname, router]);
 
 
   const navLinks = [

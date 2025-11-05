@@ -62,7 +62,7 @@ export default function SequenceBuilderPage({
     if (sequenceData?.sequence) {
       breadcrumb?.setChildName(sequenceData.sequence.name);
     }
-  }, [sequenceData, selectedEmailId]);
+  }, [sequenceData, selectedEmailId, breadcrumb]);
   // --- END FIX ---
 
   // 2. Mutation for creating a NEW email (no change)

@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { useState } from 'react';
 
 interface CitationProps {
@@ -25,14 +26,14 @@ export default function Citation({ citations }: CitationProps) {
         <div className="space-y-2">
           {citations.map((citation, idx) => (
             <div key={citation.id || idx} className="text-sm group relative">
-              <a href={citation.url} 
-                 target="_blank" 
-                 rel="noopener noreferrer"
-                 className="text-gray-600 hover:text-[var(--brand-default)] flex items-center gap-2">
+              <a href={citation.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-600 hover:text-[var(--brand-default)] flex items-center gap-2">
                 [{idx + 1}] {citation.title || citation.url}
                 {citation.favicon && (
-                  <img 
-                    src={citation.favicon} 
+                  <Image
+                    src={citation.favicon}
                     alt=""
                     className="w-4 h-4 object-contain"
                   />
