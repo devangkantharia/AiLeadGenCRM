@@ -14,21 +14,80 @@ import {
   eventFormSchema,    // <-- This was missing
 } from "@/lib/schemas";
 // --- END FIX ---
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-// (getUserId, createCompany, getCompanies, getDeals, createDeal, getPeople, createPerson, getCompanyDetails... all of this code is correct and stays the same)
-// ...
-// ...
+// Helper function to get user ID, auto-creating if doesn't exist (for demo purposes)
 async function getUserId(clerkId: string) {
+  // First, try to get the existing user by clerkId
   const { data, error } = await supabaseAdmin
     .from("User")
     .select("id")
     .eq("clerkId", clerkId)
     .single();
 
-  if (error || !data) throw new Error("User not found in DB.");
-  return data.id;
+  // If user exists, return their ID
+  if (data && !error) {
+    return data.id;
+  }
+
+  // If user doesn't exist, auto-create them (for demo/development purposes)
+  console.log(`[AUTO-CREATE] User not found for clerkId: ${clerkId}, creating now...`);
+
+  try {
+    // Fetch the real user data from Clerk
+    const client = await clerkClient();
+    const clerkUser = await client.users.getUser(clerkId);
+    const userEmail = clerkUser.emailAddresses[0]?.emailAddress || `user_${clerkId}@demo.local`;
+
+    const { data: newUser, error: createError } = await supabaseAdmin
+      .from("User")
+      .insert([{
+        clerkId,
+        email: userEmail,
+        firstName: clerkUser.firstName || "Demo",
+        lastName: clerkUser.lastName || "User",
+        photo: clerkUser.imageUrl || ""
+      }])
+      .select("id")
+      .single();
+
+    if (createError) {
+      // If it's a duplicate email error, try to find the existing user by email
+      // and update their clerkId (user might have recreated their Clerk account)
+      if (createError.code === '23505' && createError.message.includes('email')) {
+        console.log(`[AUTO-CREATE] Email ${userEmail} already exists, updating clerkId...`);
+
+        const { data: existingUser, error: updateError } = await supabaseAdmin
+          .from("User")
+          .update({ clerkId, updatedAt: new Date().toISOString() })
+          .eq("email", userEmail)
+          .select("id")
+          .single();
+
+        if (updateError || !existingUser) {
+          console.error("[AUTO-CREATE] Failed to update existing user:", updateError);
+          throw new Error("Failed to update user record. Please contact support.");
+        }
+
+        console.log(`[AUTO-CREATE] Updated existing user with new clerkId: ${existingUser.id}`);
+        return existingUser.id;
+      }
+
+      console.error("[AUTO-CREATE] Failed to create user:", createError);
+      throw new Error("Failed to auto-create user. Please contact support.");
+    }
+
+    if (!newUser) {
+      throw new Error("Failed to auto-create user. Please contact support.");
+    }
+
+    console.log(`[AUTO-CREATE] Successfully created user with ID: ${newUser.id} (${userEmail})`);
+    return newUser.id;
+  } catch (err) {
+    console.error("[AUTO-CREATE] Error during user creation:", err);
+    throw new Error("User initialization failed. Please try refreshing the page.");
+  }
 }
 
 export async function createCompany(
@@ -56,11 +115,13 @@ export async function createCompany(
 export async function getCompanies() {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-  const userId = await getUserId(clerkId);
+  // Still validate user exists, but don't filter by ownerId (demo mode)
+  await getUserId(clerkId);
+
+  // Fetch ALL companies for demo purposes
   const { data, error } = await supabaseAdmin
     .from("Company")
     .select("*, Deal(*)")
-    .eq("ownerId", userId)
     .order("createdAt", { ascending: false });
 
   if (error) {
@@ -82,7 +143,10 @@ export async function getCompanies() {
 export async function getDeals() {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-  const userId = await getUserId(clerkId);
+  // Still validate user exists, but don't filter by ownerId (demo mode)
+  await getUserId(clerkId);
+
+  // Fetch ALL deals for demo purposes
   const { data, error } = await supabaseAdmin
     .from("Deal")
     .select(
@@ -91,7 +155,6 @@ export async function getDeals() {
       Company ( name )
     `
     )
-    .eq("ownerId", userId)
     .order("closesAt", { ascending: true });
   if (error) {
     console.error("Error fetching deals:", error);
@@ -130,15 +193,21 @@ export async function createDeal(data: z.infer<typeof dealFormSchema>) {
 export async function updateDealStage(dealId: string, newStage: string) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-  const userId = await getUserId(clerkId);
-  const { data: deal } = await supabaseAdmin
+  // Validate user exists but allow editing any deal (demo mode)
+  await getUserId(clerkId);
+
+  // First fetch the deal to get companyId (no owner check - demo mode)
+  const { data: deal, error: fetchError } = await supabaseAdmin
     .from("Deal")
-    .select("ownerId, companyId")
+    .select("companyId")
     .eq("id", dealId)
     .single();
-  if (deal?.ownerId !== userId) {
-    throw new Error("Unauthorized");
+  if (fetchError) {
+    console.error("Error fetching deal:", fetchError);
+    throw new Error("Deal not found");
   }
+
+  // Update deal without owner check (demo mode - any user can update)
   const { data: updatedDeal, error } = await supabaseAdmin
     .from("Deal")
     .update({ stage: newStage, updatedAt: new Date().toISOString() })
@@ -149,12 +218,13 @@ export async function updateDealStage(dealId: string, newStage: string) {
     console.error("Error updating deal stage:", error);
     throw new Error("Failed to update deal");
   }
+
+  // Update associated company status if applicable (no owner check - demo mode)
   if (deal.companyId && newStage) {
     await supabaseAdmin
       .from("Company")
       .update({ status: newStage, updatedAt: new Date().toISOString() })
-      .eq("id", deal.companyId)
-      .eq("ownerId", userId);
+      .eq("id", deal.companyId);
   }
   revalidatePath("/deals");
   revalidatePath("/dashboard");
@@ -166,7 +236,10 @@ export async function updateDealStage(dealId: string, newStage: string) {
 export async function getPeople() {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-  const userId = await getUserId(clerkId);
+  // Still validate user exists, but don't filter by ownerId (demo mode)
+  await getUserId(clerkId);
+
+  // Fetch ALL people for demo purposes
   const { data, error } = await supabaseAdmin
     .from("Person")
     .select(
@@ -175,7 +248,6 @@ export async function getPeople() {
       Company ( name )
     `
     )
-    .eq("ownerId", userId)
     .order("createdAt", { ascending: false });
   if (error) {
     console.error("Error fetching people:", error);
@@ -207,7 +279,10 @@ export async function createPerson(data: z.infer<typeof personFormSchema>) {
 export async function getCompanyDetails(companyId: string) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-  const userId = await getUserId(clerkId);
+  // Still validate user exists, but don't filter by ownerId (demo mode)
+  await getUserId(clerkId);
+
+  // Fetch company details regardless of owner for demo purposes
   const { data, error } = await supabaseAdmin
     .from("Company")
     .select(
@@ -219,7 +294,6 @@ export async function getCompanyDetails(companyId: string) {
     `
     )
     .eq("id", companyId)
-    .eq("ownerId", userId)
     .single();
 
   if (error) {
@@ -235,8 +309,8 @@ export async function updatePerson(
 ) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-
-  const userId = await getUserId(clerkId);
+  // Validate user exists but allow editing any person (demo mode)
+  await getUserId(clerkId);
 
   const validatedData = updatePersonSchema.safeParse(data);
   if (!validatedData.success) {
@@ -250,7 +324,7 @@ export async function updatePerson(
       updatedAt: new Date().toISOString(),
     })
     .eq("id", personId)
-    .eq("ownerId", userId)
+    // No owner check (demo mode - any user can update)
     .select(
       `
       id,
@@ -317,12 +391,13 @@ export async function updateDeal(dealId: string, values: { name: string; value: 
 export async function getEmailSequences() {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-  const userId = await getUserId(clerkId);
+  // Still validate user exists, but don't filter by ownerId (demo mode)
+  await getUserId(clerkId);
 
+  // Fetch ALL sequences for demo purposes
   const { data, error } = await supabaseAdmin
     .from("EmailSequence")
     .select("*")
-    .eq("ownerId", userId)
     .order("createdAt", { ascending: false });
 
   if (error) {
@@ -360,7 +435,8 @@ export async function updateEmailSequence(
 ) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-  const userId = await getUserId(clerkId);
+  // Validate user exists but allow editing any sequence (demo mode)
+  await getUserId(clerkId);
 
   if (!name || name.trim().length === 0) {
     throw new Error("Sequence name cannot be empty");
@@ -370,7 +446,7 @@ export async function updateEmailSequence(
     .from("EmailSequence")
     .update({ name, updatedAt: new Date().toISOString() })
     .eq("id", sequenceId)
-    .eq("ownerId", userId) // Security check
+    // No owner check (demo mode - any user can update)
     .select()
     .single();
 
@@ -389,9 +465,14 @@ export async function updateEmailSequence(
 export async function deleteEmailSequence(sequenceId: string) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-  const userId = await getUserId(clerkId);
+  // Validate user exists but allow deleting any sequence (demo mode)
+  await getUserId(clerkId);
 
-  const { error } = await supabaseAdmin.from("EmailSequence").delete().eq("id", sequenceId).eq("ownerId", userId);
+  const { error } = await supabaseAdmin
+    .from("EmailSequence")
+    .delete()
+    .eq("id", sequenceId);
+  // No owner check (demo mode - any user can delete)
 
   if (error) {
     console.error("Error deleting sequence:", error);
@@ -408,26 +489,25 @@ export async function deleteEmailSequence(sequenceId: string) {
 export async function getSequenceDetails(sequenceId: string) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-  const userId = await getUserId(clerkId);
+  // Still validate user exists, but don't filter by ownerId (demo mode)
+  await getUserId(clerkId);
 
-  // 1. Get the sequence itself
+  // 1. Get the sequence itself - no owner check for demo mode
   const { data: sequence, error: seqError } = await supabaseAdmin
     .from("EmailSequence")
     .select("*")
     .eq("id", sequenceId)
-    .eq("ownerId", userId)
     .single();
 
   if (seqError || !sequence) {
     throw new Error("Sequence not found");
   }
 
-  // 2. Get all emails in that sequence
+  // 2. Get all emails in that sequence - no owner check for demo mode
   const { data: emails, error: emailsError } = await supabaseAdmin
     .from("SequenceEmail")
     .select("*")
     .eq("sequenceId", sequenceId)
-    .eq("ownerId", userId)
     .order("day", { ascending: true }); // Order by day 1, 3, 7...
 
   if (emailsError) {
@@ -474,13 +554,14 @@ export async function upsertSequenceEmail(emailData: {
 export async function deleteSequenceEmail(emailId: string, sequenceId: string) {
   const { userId: clerkId } = auth();
   if (!clerkId) throw new Error("User not authenticated");
-  const userId = await getUserId(clerkId);
+  // Validate user exists but allow deleting any email (demo mode)
+  await getUserId(clerkId);
 
   const { error } = await supabaseAdmin
     .from("SequenceEmail")
     .delete()
-    .eq("id", emailId)
-    .eq("ownerId", userId); // Security check
+    .eq("id", emailId);
+  // No owner check (demo mode - any user can delete)
 
   if (error) {
     console.error("Error deleting email:", error);

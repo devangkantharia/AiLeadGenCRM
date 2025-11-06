@@ -18,6 +18,13 @@ global.fetch = jest.fn(() =>
   })
 ) as jest.Mock;
 
+// Mock ResizeObserver (required for Radix UI Select component)
+global.ResizeObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn(),
+}));
+
 // We also mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter: () => ({

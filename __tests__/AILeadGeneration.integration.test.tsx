@@ -62,6 +62,13 @@ const mockAIResponses = {
 // Mock fetch globally
 global.fetch = jest.fn() as jest.Mock;
 
+// Mock ResizeObserver (required for Radix UI Select component)
+global.ResizeObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn(),
+}));
+
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -94,10 +101,18 @@ const wrapper = ({ children }: { children: React.ReactNode }) => {
 // --- INTEGRATION TEST SUITE ---
 describe('AI Lead Generation - Complete Integration Test', () => {
   const fetchMock = global.fetch as jest.Mock;
+  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     fetchMock.mockClear();
     jest.clearAllMocks();
+    // Suppress console.error during tests (component logs expected errors)
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+  });
+
+  afterEach(() => {
+    // Restore console.error after each test
+    consoleErrorSpy.mockRestore();
   });
 
   // --- TEST 1: Complete Lead Generation with Contacts ---

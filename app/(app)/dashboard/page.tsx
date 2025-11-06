@@ -41,6 +41,10 @@ function Dashboard({ allDeals, allCompanies }: { allDeals: any[], allCompanies: 
     allCompanies?.filter((company) => company.status === "Lead")
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) || [];
 
+  const oldLeads =
+    allCompanies?.filter((company) => company.status === "Lost" || "Proposal" || "Won" || "Discovery")
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) || [];
+
   const dealsByStage = STAGES.map((stage) => {
     const dealsInStage = allDeals?.filter((deal: any) => deal.stage === stage) || [];
     return {
@@ -78,8 +82,8 @@ function Dashboard({ allDeals, allCompanies }: { allDeals: any[], allCompanies: 
               <RefreshLeadsButton />
             </Flex>
           </Box>
-          {newLeads.length > 0 ? (
-            <Box style={{ height: '354px', overflowY: 'auto' }} p="4">
+          <Box style={{ height: '354px', overflowY: 'auto' }} p="4">
+            {newLeads.length > 0 ? (
               <Flex direction="column" gap="2">
                 {newLeads.map((lead) => (
                   <Link key={lead.id} href={`/companies/${lead.id}`} passHref>
@@ -92,10 +96,27 @@ function Dashboard({ allDeals, allCompanies }: { allDeals: any[], allCompanies: 
                   </Link>
                 ))}
               </Flex>
-            </Box>
-          ) : (
-            <Text as="p" size="2" >No new leads generated yet. Use the AI Assistant to find and save leads.</Text>
-          )}
+            ) : (
+              <Text as="p" size="2" >No new leads generated yet. Use the AI Assistant to find and save leads.</Text>
+            )}
+            {oldLeads.length > 0 ? (
+              <Flex direction="column" gap="2">
+                <Text style={{ color: `var(--accent-7)` }} as="div" weight="medium" className="pt-5 pb-2" >Previous Leads</Text>
+                {oldLeads.map((lead) => (
+                  <Link key={lead.id} href={`/companies/${lead.id}`} passHref>
+                    <Box className={`p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow border hover:border-blue-500 h-full ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} ${isDarkMode ? 'bg-[var(--accent-3)]' : 'bg-[var(--accent-4)]'}`}>
+                      <Flex justify="between" align="center">
+                        <Text style={{ color: `var(--accent-11)` }} as="div" weight="medium" >{lead.name}</Text>
+                        <Text style={{ color: `var(--accent-11)` }} size="2" >{lead.geography}</Text>
+                      </Flex>
+                    </Box>
+                  </Link>
+                ))}
+              </Flex>
+            ) : (
+              <Text as="p" size="2" >No new leads generated yet. Use the AI Assistant to find and save leads.</Text>
+            )}
+          </Box>
         </Card>
         <Card>
           <Box p="4" mb="2" style={{ borderBottom: `1px solid var(--gray-a5)` }}>
@@ -141,11 +162,13 @@ export default function DashboardPage() {
   const { data: companies, isLoading: isLoadingCompanies, error: companiesError } = useQuery({
     queryKey: ["companies"],
     queryFn: () => getCompanies(),
+    retry: 1, // Retry once if it fails
   });
 
   const { data: deals, isLoading: isLoadingDeals, error: dealsError } = useQuery({
     queryKey: ["deals"],
     queryFn: () => getDeals(),
+    retry: 1, // Retry once if it fails
   });
 
   const isLoading = isLoadingCompanies || isLoadingDeals;
@@ -154,12 +177,53 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <Box p="4">
-        <Text>Loading dashboard...</Text>
+        <Flex direction="column" align="center" justify="center" style={{ minHeight: "400px" }}>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+          <Text size="3" weight="medium">Loading your dashboard...</Text>
+          <Text size="2" color="gray">Initializing your workspace</Text>
+        </Flex>
       </Box>
     );
   }
 
-  if (error) return <Box p="4"><Text color="red">Error loading dashboard: {(error as Error).message}</Text></Box>;
+  if (error) {
+    return (
+      <Box p="4">
+        <Card>
+          <Flex direction="column" gap="4" p="6">
+            <Heading color="red" size="5">⚠️ Dashboard Error</Heading>
+            <Text size="3" color="red" weight="medium">
+              {(error as Error).message || "An error occurred while loading the dashboard"}
+            </Text>
+            <Text size="2" color="gray">
+              This might be a temporary issue. Please try refreshing the page.
+            </Text>
+            <Flex gap="3" mt="2">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              >
+                Refresh Page
+              </button>
+              <Link href="/companies">
+                <button className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">
+                  View Companies
+                </button>
+              </Link>
+            </Flex>
+            <Box mt="4" p="4" style={{ background: "var(--gray-a2)", borderRadius: "8px" }}>
+              <Text size="1" color="gray" as="div" mb="2">
+                <strong>For developers:</strong>
+              </Text>
+              <Text size="1" color="gray" as="div" style={{ fontFamily: "monospace" }}>
+                {(error as Error).stack || (error as Error).message}
+              </Text>
+            </Box>
+          </Flex>
+        </Card>
+      </Box>
+    );
+  }
 
   return <Dashboard allDeals={deals || []} allCompanies={companies || []} />;
 }

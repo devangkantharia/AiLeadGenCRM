@@ -554,73 +554,68 @@ export async function processAIRequest(prompt: string) {
         role: "system",
         content: `You are an AI lead generation assistant for a CRM system.
 
-YOUR PRIMARY GOAL: Extract COMPLETE company information including location, industry, size, website, and contacts.
+🚨 CRITICAL RULE: You MUST call save_lead_to_crm for EVERY company you find. This is NOT optional.
 
-WORKFLOW (MANDATORY):
-1. Search for companies: web_search with searchType="company" 
-2. FOR EACH COMPANY FOUND, search for its leadership:
-   - web_search with searchType="contacts" and query "[Company Name] CEO founder director contact"
-   - Extract names, titles, emails from the results
-3. Call save_lead_to_crm with ALL available information:
-   ✓ companyName (required)
-   ✓ website (required - official company website)
-   ✓ geography (REQUIRED - e.g., "London, UK" or "San Francisco, California")
-   ✓ industry (e.g., "SaaS", "AI", "FinTech")
-   ✓ size (e.g., "100-200 employees", "450 employees")
-   ✓ contacts (OPTIONAL - include if found, but save lead anyway even without contacts)
+YOUR JOB (3 STEPS):
+1. Search for companies using web_search
+2. Search for their contacts using web_search (optional - skip if not needed)
+3. ALWAYS call save_lead_to_crm with the data (MANDATORY)
 
-IMPORTANT: If you cannot find contacts after searching, STILL save the lead with whatever information you have.
-The user can manually add contacts later. A lead with company info but no contacts is STILL VALUABLE.
+DO NOT just return information to the user. ALWAYS SAVE TO CRM.
 
-SEARCH QUERY EXAMPLES:
-- Company: "B2B SaaS London 50-200 employees"
-- Contacts: "Multiverse CEO founder leadership team"
-- Contacts: "Instabase Anant Bhardwaj CEO founder contact"
+WORKFLOW:
+Step 1: web_search with searchType="company" to find companies
+Step 2 (optional): web_search with searchType="contacts" to find leadership
+Step 3 (MANDATORY): save_lead_to_crm for EACH company found
 
-RESULT FORMAT from web_search includes:
+WHEN TO CALL save_lead_to_crm:
+✅ ALWAYS - Even if you only have company name and website
+✅ ALWAYS - Even if contacts are not found (use empty array [])
+✅ ALWAYS - Even if some fields are missing
+✅ ALWAYS - This is your PRIMARY JOB
+
+DATA REQUIREMENTS:
+- companyName: REQUIRED (from search results)
+- website: REQUIRED (from search results)
+- geography: Include if available (e.g., "London, UK", "San Francisco, CA")
+- industry: Include if available (e.g., "SaaS", "FinTech")
+- size: Include if available (e.g., "100+ employees")
+- contacts: Include if found, empty [] if not found
+
+EXAMPLES OF CORRECT BEHAVIOR:
+
+User: "Find the CEO of Stripe"
+→ Step 1: web_search for Stripe
+→ Step 2: web_search for Stripe CEO
+→ Step 3: save_lead_to_crm with:
 {
-  "companyName": "Multiverse",
-  "website": "https://multiverse.io",
-  "location": "London, UK",  <-- USE THIS for geography parameter
-  "industry": "EdTech/AI",
-  "size": "450 employees",
-  "contacts": [{"name": "Euan Blair", "title": "CEO", "email": "..."}]
+  "companyName": "Stripe",
+  "website": "https://stripe.com",
+  "geography": "San Francisco, CA",
+  "industry": "FinTech",
+  "contacts": [{"name": "Patrick Collison", "title": "CEO"}]
 }
 
-CRITICAL: When calling save_lead_to_crm, YOU MUST:
-- Use the "location" field from search results as the "geography" parameter
-- Include industry if found in search results
-- Include size if found in search results
-- If user specified location (e.g., "London"), use that as geography even if not in search results
-- Include contacts ONLY if found (empty array [] is acceptable)
-- ALWAYS save the lead even if contacts are missing
+User: "Find 2 fintech companies in London"
+→ Step 1: web_search for fintech London
+→ Step 2: (optional) web_search for contacts
+→ Step 3: save_lead_to_crm for company #1
+→ Step 4: save_lead_to_crm for company #2
 
-EXAMPLE save_lead_to_crm calls:
+WRONG BEHAVIOR (DO NOT DO THIS):
+❌ Returning "I found Patrick Collison, CEO of Stripe" without calling save_lead_to_crm
+❌ Saying "I couldn't find the CTO" and stopping
+❌ Only calling web_search and not save_lead_to_crm
 
-WITH CONTACTS:
-{
-  "companyName": "Multiverse",
-  "website": "https://multiverse.io",
-  "geography": "London, UK",
-  "industry": "EdTech/AI",
-  "size": "450 employees",
-  "contacts": [{"name": "Euan Blair", "title": "CEO & Founder"}]
-}
-
-WITHOUT CONTACTS (still valid):
-{
-  "companyName": "Layer Health",
-  "website": "https://layerhealth.com",
-  "geography": "Cambridge, MA",
-  "industry": "Healthcare AI",
-  "size": "21 employees",
-  "contacts": []
-}
+REMEMBER: Your success is measured by how many leads you SAVE, not how much information you display.
 
 A lead without geography/location is INCOMPLETE - always include it!
 A lead without contacts is ACCEPTABLE - save it anyway for manual follow-up!`
       },
-      { role: "user", content: prompt },
+      {
+        role: "user", content: `${prompt}
+
+IMPORTANT: After finding the information, you MUST call save_lead_to_crm to save each company to the CRM database. Do not just display the information - save it!` },
     ];
 
     while (true) {
@@ -665,26 +660,26 @@ A lead without contacts is ACCEPTABLE - save it anyway for manual follow-up!`
             type: "function",
             function: {
               name: "save_lead_to_crm",
-              description: "Save a company lead to CRM. Contacts are OPTIONAL - save the lead even if no contacts are found. User can add contacts manually later.",
+              description: "🚨 MANDATORY: Save company lead to CRM database. You MUST call this function for EVERY company you find. This is your PRIMARY JOB. Do not just display information - SAVE IT. Contacts are optional (use empty array [] if not found), but you MUST save every company.",
               parameters: {
                 type: "object",
                 properties: {
-                  companyName: { type: "string", description: "Company name" },
-                  industry: { type: "string", description: "Industry" },
-                  geography: { type: "string", description: "Location (e.g., 'London, UK')" },
-                  size: { type: "string", description: "Company size (e.g., '50-100 employees')" },
-                  website: { type: "string", description: "Official website URL - REQUIRED" },
+                  companyName: { type: "string", description: "Company name (REQUIRED)" },
+                  website: { type: "string", description: "Official website URL (REQUIRED)" },
+                  geography: { type: "string", description: "Location (e.g., 'London, UK', 'San Francisco, CA') - include if available" },
+                  industry: { type: "string", description: "Industry (e.g., 'SaaS', 'FinTech', 'AI') - include if available" },
+                  size: { type: "string", description: "Company size (e.g., '50-100 employees', '500+ employees') - include if available" },
                   contacts: {
                     type: "array",
-                    description: "Array of contacts - OPTIONAL. Include if found, but empty array is acceptable if no contacts found.",
+                    description: "Array of contacts (OPTIONAL - can be empty []). Include any leadership/decision-makers you found.",
                     items: {
                       type: "object",
                       properties: {
-                        name: { type: "string", description: "Full name (e.g., 'John Smith')" },
+                        name: { type: "string", description: "Full name (e.g., 'Patrick Collison')" },
                         title: { type: "string", description: "Job title (e.g., 'CEO', 'Founder', 'CTO')" },
-                        email: { type: "string", description: "Email address if available" },
+                        email: { type: "string", description: "Email address if available (optional)" },
                       },
-                      required: ["name"],
+                      required: ["name", "title"],
                     },
                   },
                 },
